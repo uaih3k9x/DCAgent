@@ -6,13 +6,14 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 // 数据中心
 model DataCenter {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
+  shortId   Int      @unique @default(autoincrement()) // 短ID用于二维码和手动输入
   name      String
   location  String?
   rooms     Room[]
@@ -22,7 +23,8 @@ model DataCenter {
 
 // 机房
 model Room {
-  id           String     @id @default(cuid())
+  id           String     @id @default(uuid())
+  shortId      Int        @unique @default(autoincrement()) // 短ID
   name         String
   floor        String?
   dataCenterId String
@@ -34,7 +36,8 @@ model Room {
 
 // 机柜
 model Cabinet {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
+  shortId   Int      @unique @default(autoincrement()) // 短ID
   name      String
   position  String?  // 机房中的位置
   height    Int      @default(42) // U数，默认42U
@@ -58,7 +61,8 @@ enum DeviceType {
 
 // 设备
 model Device {
-  id          String     @id @default(cuid())
+  id          String     @id @default(uuid())
+  shortId     Int        @unique @default(autoincrement()) // 短ID
   name        String
   type        DeviceType
   model       String?
@@ -84,7 +88,7 @@ enum PanelType {
 
 // 面板（设备上的接口面板）
 model Panel {
-  id        String    @id @default(cuid())
+  id        String    @id @default(uuid())
   name      String
   type      PanelType
   deviceId  String
@@ -104,7 +108,7 @@ enum PortStatus {
 
 // 端口
 model Port {
-  id        String     @id @default(cuid())
+  id        String     @id @default(uuid())
   number    String     // 端口编号
   label     String?    // 端口标签
   status    PortStatus @default(AVAILABLE)
@@ -122,22 +126,38 @@ enum CableType {
   CAT6
   CAT6A
   CAT7
-  FIBER_SM  // 单模光纤
-  FIBER_MM  // 多模光纤
+  FIBER_SM       // 单模光纤
+  FIBER_MM       // 多模光纤
+  QSFP_TO_SFP    // QSFP转SFP分支线缆
+  QSFP_TO_QSFP   // QSFP直连
+  SFP_TO_SFP     // SFP直连
   POWER
   OTHER
 }
 
 // 线缆（基础信息存储在关系数据库，连接关系存储在Neo4j）
 model Cable {
-  id          String     @id @default(cuid())
-  label       String?    // 线缆标签
+  id          String          @id @default(uuid())
+  shortId     Int             @unique @default(autoincrement()) // 短ID用于二维码
+  label       String?         // 线缆标签
   type        CableType
-  length      Float?     // 长度（米）
+  length      Float?          // 长度（米）
   color       String?
   notes       String?
-  // 连接关系存储在Neo4j图数据库中
-  // portAId 和 portBId 通过图数据库关联
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  isBranched  Boolean         @default(false) // 是否为分支线缆（1对多）
+  endpoints   CableEndpoint[] // 线缆端点
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+// 线缆端点（支持1对多连接）
+model CableEndpoint {
+  id        String   @id @default(uuid())
+  cableId   String
+  cable     Cable    @relation(fields: [cableId], references: [id], onDelete: Cascade)
+  portId    String
+  endType   String   // "A" 表示主端（如QSFP端），"B1", "B2", "B3", "B4" 表示分支端（如4个SFP端）
+  createdAt DateTime @default(now())
+
+  @@unique([cableId, endType]) // 确保同一线缆的端点类型唯一
 }

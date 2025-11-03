@@ -19,21 +19,21 @@ services:
       - dcagent-network
     restart: unless-stopped
 
-  # PostgreSQL 关系数据库（可选，如果想用 PostgreSQL 替代 SQLite）
-  # postgres:
-  #   image: postgres:16-alpine
-  #   container_name: dcagent-postgres
-  #   ports:
-  #     - "5432:5432"
-  #   environment:
-  #     - POSTGRES_DB=dcagent
-  #     - POSTGRES_USER=dcagent
-  #     - POSTGRES_PASSWORD=dcagent_password
-  #   volumes:
-  #     - postgres_data:/var/lib/postgresql/data
-  #   networks:
-  #     - dcagent-network
-  #   restart: unless-stopped
+  # PostgreSQL 关系数据库
+  postgres:
+    image: postgres:16-alpine
+    container_name: dcagent-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=dcagent
+      - POSTGRES_USER=dcagent
+      - POSTGRES_PASSWORD=dcagent_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - dcagent-network
+    restart: unless-stopped
 
   # 后端服务（开发模式）
   backend:
@@ -46,7 +46,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=3000
-      - DATABASE_URL=file:./dev.db
+      - DATABASE_URL=postgresql://dcagent:dcagent_password@postgres:5432/dcagent?schema=public
       - NEO4J_URI=bolt://neo4j:7687
       - NEO4J_USER=neo4j
       - NEO4J_PASSWORD=password
@@ -55,6 +55,7 @@ services:
       - /app/node_modules
     depends_on:
       - neo4j
+      - postgres
     networks:
       - dcagent-network
     restart: unless-stopped
@@ -83,7 +84,7 @@ services:
 volumes:
   neo4j_data:
   neo4j_logs:
-  # postgres_data:
+  postgres_data:
 
 networks:
   dcagent-network:
