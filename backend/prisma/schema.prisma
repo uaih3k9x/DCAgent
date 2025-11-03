@@ -1,0 +1,143 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// 数据中心
+model DataCenter {
+  id        String   @id @default(cuid())
+  name      String
+  location  String?
+  rooms     Room[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 机房
+model Room {
+  id           String     @id @default(cuid())
+  name         String
+  floor        String?
+  dataCenterId String
+  dataCenter   DataCenter @relation(fields: [dataCenterId], references: [id], onDelete: Cascade)
+  cabinets     Cabinet[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+// 机柜
+model Cabinet {
+  id        String   @id @default(cuid())
+  name      String
+  position  String?  // 机房中的位置
+  height    Int      @default(42) // U数，默认42U
+  roomId    String
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  devices   Device[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 设备类型枚举
+enum DeviceType {
+  SERVER
+  SWITCH
+  ROUTER
+  FIREWALL
+  STORAGE
+  PDU
+  OTHER
+}
+
+// 设备
+model Device {
+  id          String     @id @default(cuid())
+  name        String
+  type        DeviceType
+  model       String?
+  serialNo    String?    @unique
+  uPosition   Int?       // 在机柜中的U位
+  uHeight     Int?       // 占用几U
+  cabinetId   String
+  cabinet     Cabinet    @relation(fields: [cabinetId], references: [id], onDelete: Cascade)
+  panels      Panel[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+// 面板类型枚举
+enum PanelType {
+  ETHERNET
+  FIBER
+  POWER
+  SERIAL
+  USB
+  OTHER
+}
+
+// 面板（设备上的接口面板）
+model Panel {
+  id        String    @id @default(cuid())
+  name      String
+  type      PanelType
+  deviceId  String
+  device    Device    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  ports     Port[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+// 端口状态枚举
+enum PortStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  FAULTY
+}
+
+// 端口
+model Port {
+  id        String     @id @default(cuid())
+  number    String     // 端口编号
+  label     String?    // 端口标签
+  status    PortStatus @default(AVAILABLE)
+  panelId   String
+  panel     Panel      @relation(fields: [panelId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@unique([panelId, number])
+}
+
+// 线缆类型枚举
+enum CableType {
+  CAT5E
+  CAT6
+  CAT6A
+  CAT7
+  FIBER_SM  // 单模光纤
+  FIBER_MM  // 多模光纤
+  POWER
+  OTHER
+}
+
+// 线缆（基础信息存储在关系数据库，连接关系存储在Neo4j）
+model Cable {
+  id          String     @id @default(cuid())
+  label       String?    // 线缆标签
+  type        CableType
+  length      Float?     // 长度（米）
+  color       String?
+  notes       String?
+  // 连接关系存储在Neo4j图数据库中
+  // portAId 和 portBId 通过图数据库关联
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
