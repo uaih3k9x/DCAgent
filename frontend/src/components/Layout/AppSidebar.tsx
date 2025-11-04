@@ -2,7 +2,11 @@ import { Layout, Menu } from 'antd';
 import {
   DashboardOutlined,
   DatabaseOutlined,
+  HomeOutlined,
+  InboxOutlined,
+  CloudServerOutlined,
   ApartmentOutlined,
+  ApiOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -19,14 +23,53 @@ export default function AppSidebar() {
       label: '仪表板',
     },
     {
-      key: '/devices',
+      key: 'infrastructure',
       icon: <DatabaseOutlined />,
-      label: '设备管理',
+      label: '基础设施',
+      children: [
+        {
+          key: '/datacenters',
+          icon: <DatabaseOutlined />,
+          label: '数据中心',
+        },
+        {
+          key: '/rooms',
+          icon: <HomeOutlined />,
+          label: '机房',
+        },
+        {
+          key: '/cabinets',
+          icon: <InboxOutlined />,
+          label: '机柜',
+        },
+        {
+          key: '/devices',
+          icon: <CloudServerOutlined />,
+          label: '设备',
+        },
+      ],
     },
     {
-      key: '/topology',
+      key: 'connectivity',
       icon: <ApartmentOutlined />,
-      label: '线缆拓扑',
+      label: '连接管理',
+      children: [
+        {
+          key: '/panels',
+          icon: <ApartmentOutlined />,
+          label: '面板',
+        },
+        {
+          key: '/ports',
+          icon: <ApiOutlined />,
+          label: '端口',
+        },
+        {
+          key: '/topology',
+          icon: <ApartmentOutlined />,
+          label: '线缆拓扑',
+        },
+      ],
     },
   ];
 

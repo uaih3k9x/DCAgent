@@ -5,6 +5,8 @@ import datacentersRouter from './routes/datacenters';
 import roomsRouter from './routes/rooms';
 import cabinetsRouter from './routes/cabinets';
 import devicesRouter from './routes/devices';
+import panelsRouter from './routes/panels';
+import portsRouter from './routes/ports';
 import cablesRouter from './routes/cables';
 
 dotenv.config();
@@ -49,6 +51,8 @@ app.use('/api/v1/datacenters', datacentersRouter);
 app.use('/api/v1/rooms', roomsRouter);
 app.use('/api/v1/cabinets', cabinetsRouter);
 app.use('/api/v1/devices', devicesRouter);
+app.use('/api/v1/panels', panelsRouter);
+app.use('/api/v1/ports', portsRouter);
 app.use('/api/v1/cables', cablesRouter);
 
 // Error handling

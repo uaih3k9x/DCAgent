@@ -1,0 +1,733 @@
+openapi: 3.0.3
+info:
+  title: DCAgent API
+  description: 数据中心全生命周期管理系统 API
+  version: 1.0.0
+  contact:
+    name: DCAgent Team
+servers:
+  - url: http://localhost:3000/api/v1
+    description: 本地开发服务器
+
+tags:
+  - name: DataCenters
+    description: 数据中心管理
+  - name: Rooms
+    description: 机房管理
+  - name: Cabinets
+    description: 机柜管理
+  - name: Devices
+    description: 设备管理
+  - name: Panels
+    description: 面板管理
+  - name: Ports
+    description: 端口管理
+  - name: Cables
+    description: 线缆管理
+
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        details:
+          type: array
+          items:
+            type: object
+
+    Success:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+
+    DataCenter:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        shortId:
+          type: integer
+        name:
+          type: string
+        location:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Room:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        shortId:
+          type: integer
+        name:
+          type: string
+        floor:
+          type: string
+          nullable: true
+        dataCenterId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Cabinet:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        shortId:
+          type: integer
+        name:
+          type: string
+        position:
+          type: string
+          nullable: true
+        height:
+          type: integer
+          default: 42
+        roomId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    DeviceType:
+      type: string
+      enum:
+        - SERVER
+        - SWITCH
+        - ROUTER
+        - FIREWALL
+        - STORAGE
+        - PDU
+        - OTHER
+
+    Device:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        shortId:
+          type: integer
+        name:
+          type: string
+        type:
+          $ref: '#/components/schemas/DeviceType'
+        model:
+          type: string
+          nullable: true
+        serialNo:
+          type: string
+          nullable: true
+        uPosition:
+          type: integer
+          nullable: true
+        uHeight:
+          type: integer
+          nullable: true
+        cabinetId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PanelType:
+      type: string
+      enum:
+        - ETHERNET
+        - FIBER
+        - POWER
+        - SERIAL
+        - USB
+        - OTHER
+
+    Panel:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          $ref: '#/components/schemas/PanelType'
+        deviceId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PortStatus:
+      type: string
+      enum:
+        - AVAILABLE
+        - OCCUPIED
+        - RESERVED
+        - FAULTY
+
+    Port:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          type: string
+        label:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/PortStatus'
+        panelId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CableType:
+      type: string
+      enum:
+        - CAT5E
+        - CAT6
+        - CAT6A
+        - CAT7
+        - FIBER_SM
+        - FIBER_MM
+        - QSFP_TO_SFP
+        - QSFP_TO_QSFP
+        - SFP_TO_SFP
+        - POWER
+        - OTHER
+
+    Cable:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        shortId:
+          type: integer
+        label:
+          type: string
+          nullable: true
+        type:
+          $ref: '#/components/schemas/CableType'
+        length:
+          type: number
+          format: float
+          nullable: true
+        color:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        isBranched:
+          type: boolean
+          default: false
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+paths:
+  # Panel endpoints
+  /panels:
+    get:
+      tags:
+        - Panels
+      summary: 获取面板列表
+      description: 获取所有面板，支持按设备、类型过滤和搜索
+      parameters:
+        - name: deviceId
+          in: query
+          schema:
+            type: string
+          description: 按设备ID过滤
+        - name: type
+          in: query
+          schema:
+            $ref: '#/components/schemas/PanelType'
+          description: 按面板类型过滤
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: 搜索关键词
+      responses:
+        '200':
+          description: 成功返回面板列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Panel'
+        '500':
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /panels/get:
+    post:
+      tags:
+        - Panels
+      summary: 获取面板详情
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+              properties:
+                id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: 成功返回面板详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Panel'
+        '404':
+          description: 面板不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /panels/create:
+    post:
+      tags:
+        - Panels
+      summary: 创建面板
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - type
+                - deviceId
+              properties:
+                name:
+                  type: string
+                type:
+                  $ref: '#/components/schemas/PanelType'
+                deviceId:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: 面板创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Panel'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /panels/update:
+    post:
+      tags:
+        - Panels
+      summary: 更新面板
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                name:
+                  type: string
+                type:
+                  $ref: '#/components/schemas/PanelType'
+      responses:
+        '200':
+          description: 面板更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Panel'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /panels/delete:
+    post:
+      tags:
+        - Panels
+      summary: 删除面板
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+              properties:
+                id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: 面板删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Port endpoints
+  /ports:
+    get:
+      tags:
+        - Ports
+      summary: 获取端口列表
+      description: 获取所有端口，支持按面板、状态过滤和搜索
+      parameters:
+        - name: panelId
+          in: query
+          schema:
+            type: string
+          description: 按面板ID过滤
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/PortStatus'
+          description: 按端口状态过滤
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: 搜索关键词
+      responses:
+        '200':
+          description: 成功返回端口列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Port'
+        '500':
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /ports/get:
+    post:
+      tags:
+        - Ports
+      summary: 获取端口详情
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+              properties:
+                id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: 成功返回端口详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Port'
+        '404':
+          description: 端口不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /ports/create:
+    post:
+      tags:
+        - Ports
+      summary: 创建端口
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - number
+                - panelId
+              properties:
+                number:
+                  type: string
+                label:
+                  type: string
+                status:
+                  $ref: '#/components/schemas/PortStatus'
+                panelId:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: 端口创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Port'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /ports/create-bulk:
+    post:
+      tags:
+        - Ports
+      summary: 批量创建端口
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - panelId
+                - count
+              properties:
+                panelId:
+                  type: string
+                  format: uuid
+                count:
+                  type: integer
+                  minimum: 1
+                prefix:
+                  type: string
+                  default: 'Port-'
+      responses:
+        '201':
+          description: 端口批量创建成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /ports/update:
+    post:
+      tags:
+        - Ports
+      summary: 更新端口
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                number:
+                  type: string
+                label:
+                  type: string
+                status:
+                  $ref: '#/components/schemas/PortStatus'
+      responses:
+        '200':
+          description: 端口更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Port'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /ports/update-status:
+    post:
+      tags:
+        - Ports
+      summary: 更新端口状态
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - status
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                status:
+                  $ref: '#/components/schemas/PortStatus'
+      responses:
+        '200':
+          description: 端口状态更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Port'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /ports/delete:
+    post:
+      tags:
+        - Ports
+      summary: 删除端口
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+              properties:
+                id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: 端口删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /ports/available:
+    post:
+      tags:
+        - Ports
+      summary: 获取面板的可用端口
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - panelId
+              properties:
+                panelId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: 成功返回可用端口列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Port'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'

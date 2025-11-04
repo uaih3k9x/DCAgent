@@ -3,7 +3,12 @@ import { Layout } from 'antd';
 import AppHeader from './components/Layout/AppHeader';
 import AppSidebar from './components/Layout/AppSidebar';
 import Dashboard from './pages/Dashboard';
+import DataCenterList from './pages/DataCenterList';
+import RoomList from './pages/RoomList';
+import CabinetList from './pages/CabinetList';
 import DeviceList from './pages/DeviceList';
+import PanelList from './pages/PanelList';
+import PortList from './pages/PortList';
 import CableTopology from './pages/CableTopology';
 
 const { Content } = Layout;
@@ -26,7 +31,12 @@ function App() {
           >
             <Routes>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/datacenters" element={<DataCenterList />} />
+              <Route path="/rooms" element={<RoomList />} />
+              <Route path="/cabinets" element={<CabinetList />} />
               <Route path="/devices" element={<DeviceList />} />
+              <Route path="/panels" element={<PanelList />} />
+              <Route path="/ports" element={<PortList />} />
               <Route path="/topology" element={<CableTopology />} />
             </Routes>
           </Content>
