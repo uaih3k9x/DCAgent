@@ -37,9 +37,20 @@ const panelIdSchema = z.object({
   depth: z.number().int().positive().optional(),
 });
 
+const shortIdSchema = z.object({
+  shortId: z.number().int().positive('Invalid shortId'),
+});
+
 // GET /api/v1/cables - 获取列表
 router.get('/', async (req: Request, res: Response) => {
   try {
+    const { search } = req.query;
+
+    if (search) {
+      const cables = await cableService.searchCables(search as string);
+      return res.json(cables);
+    }
+
     const cables = await cableService.getAllCables();
     res.json(cables);
   } catch (error) {
@@ -63,6 +74,24 @@ router.post('/get', async (req: Request, res: Response) => {
     }
     console.error('Error fetching cable:', error);
     res.status(500).json({ error: 'Failed to fetch cable' });
+  }
+});
+
+// POST /api/v1/cables/by-shortid - 根据shortId获取详情
+router.post('/by-shortid', async (req: Request, res: Response) => {
+  try {
+    const { shortId } = shortIdSchema.parse(req.body);
+    const cable = await cableService.getCableByShortId(shortId);
+    if (!cable) {
+      return res.status(404).json({ error: 'Cable not found' });
+    }
+    res.json(cable);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: error.errors });
+    }
+    console.error('Error fetching cable by shortId:', error);
+    res.status(500).json({ error: 'Failed to fetch cable by shortId' });
   }
 });
 
@@ -160,6 +189,42 @@ router.post('/network-topology', async (req: Request, res: Response) => {
     }
     console.error('Error fetching network topology:', error);
     res.status(500).json({ error: 'Failed to fetch network topology' });
+  }
+});
+
+// POST /api/v1/cables/endpoints - 获取线缆端点信息
+router.post('/endpoints', async (req: Request, res: Response) => {
+  try {
+    const { id } = idSchema.parse(req.body);
+    const endpoints = await cableService.getCableEndpoints(id);
+    if (!endpoints) {
+      return res.status(404).json({ error: 'Cable not found' });
+    }
+    res.json(endpoints);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: error.errors });
+    }
+    console.error('Error fetching cable endpoints:', error);
+    res.status(500).json({ error: 'Failed to fetch cable endpoints' });
+  }
+});
+
+// POST /api/v1/cables/endpoints-by-shortid - 根据shortId获取线缆端点信息
+router.post('/endpoints-by-shortid', async (req: Request, res: Response) => {
+  try {
+    const { shortId } = shortIdSchema.parse(req.body);
+    const endpoints = await cableService.getCableEndpointsByShortId(shortId);
+    if (!endpoints) {
+      return res.status(404).json({ error: 'Cable not found' });
+    }
+    res.json(endpoints);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: error.errors });
+    }
+    console.error('Error fetching cable endpoints by shortId:', error);
+    res.status(500).json({ error: 'Failed to fetch cable endpoints by shortId' });
   }
 });
 

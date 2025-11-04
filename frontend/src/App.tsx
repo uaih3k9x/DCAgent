@@ -6,10 +6,8 @@ import Dashboard from './pages/Dashboard';
 import DataCenterList from './pages/DataCenterList';
 import RoomList from './pages/RoomList';
 import CabinetList from './pages/CabinetList';
-import CabinetVisualizationPage from './pages/CabinetVisualizationPage';
 import DeviceList from './pages/DeviceList';
 import PanelList from './pages/PanelList';
-import PortList from './pages/PortList';
 import PortManagementPage from './pages/PortManagementPage';
 import CableTopology from './pages/CableTopology';
 
@@ -36,11 +34,9 @@ function App() {
               <Route path="/datacenters" element={<DataCenterList />} />
               <Route path="/rooms" element={<RoomList />} />
               <Route path="/cabinets" element={<CabinetList />} />
-              <Route path="/cabinets/visual" element={<CabinetVisualizationPage />} />
               <Route path="/devices" element={<DeviceList />} />
               <Route path="/panels" element={<PanelList />} />
-              <Route path="/ports" element={<PortList />} />
-              <Route path="/ports/visual" element={<PortManagementPage />} />
+              <Route path="/ports" element={<PortManagementPage />} />
               <Route path="/topology" element={<CableTopology />} />
             </Routes>
           </Content>

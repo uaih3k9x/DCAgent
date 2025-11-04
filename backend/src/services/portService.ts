@@ -83,6 +83,31 @@ class PortService {
     });
   }
 
+  async getPortByShortId(shortId: number) {
+    return await prisma.port.findUnique({
+      where: { shortId },
+      include: {
+        panel: {
+          include: {
+            device: {
+              include: {
+                cabinet: {
+                  include: {
+                    room: {
+                      include: {
+                        dataCenter: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
   async getAllPorts() {
     return await prisma.port.findMany({
       include: {

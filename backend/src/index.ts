@@ -8,6 +8,7 @@ import devicesRouter from './routes/devices';
 import panelsRouter from './routes/panels';
 import portsRouter from './routes/ports';
 import cablesRouter from './routes/cables';
+import searchRouter from './routes/search';
 
 dotenv.config();
 
@@ -41,7 +42,7 @@ app.get('/api/v1', (req: Request, res: Response) => {
       panels: '/api/v1/panels',
       ports: '/api/v1/ports',
       cables: '/api/v1/cables',
-      connections: '/api/v1/connections'
+      search: '/api/v1/search'
     }
   });
 });
@@ -54,6 +55,7 @@ app.use('/api/v1/devices', devicesRouter);
 app.use('/api/v1/panels', panelsRouter);
 app.use('/api/v1/ports', portsRouter);
 app.use('/api/v1/cables', cablesRouter);
+app.use('/api/v1/search', searchRouter);
 
 // Error handling
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {

@@ -54,6 +54,28 @@ class CabinetService {
     });
   }
 
+  async getCabinetByShortId(shortId: number): Promise<Cabinet | null> {
+    return prisma.cabinet.findUnique({
+      where: { shortId },
+      include: {
+        room: {
+          include: {
+            dataCenter: true,
+          },
+        },
+        devices: {
+          include: {
+            panels: {
+              include: {
+                ports: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
   async getCabinetsByRoom(roomId: string): Promise<Cabinet[]> {
     return prisma.cabinet.findMany({
       where: { roomId },

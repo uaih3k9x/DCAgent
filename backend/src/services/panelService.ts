@@ -67,6 +67,32 @@ class PanelService {
     });
   }
 
+  async getPanelByShortId(shortId: number) {
+    return await prisma.panel.findUnique({
+      where: { shortId },
+      include: {
+        device: {
+          include: {
+            cabinet: {
+              include: {
+                room: {
+                  include: {
+                    dataCenter: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        ports: {
+          orderBy: {
+            number: 'asc',
+          },
+        },
+      },
+    });
+  }
+
   async getAllPanels() {
     return await prisma.panel.findMany({
       include: {

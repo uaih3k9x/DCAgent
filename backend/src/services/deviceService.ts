@@ -53,6 +53,28 @@ class DeviceService {
     });
   }
 
+  async getDeviceByShortId(shortId: number) {
+    return await prisma.device.findUnique({
+      where: { shortId },
+      include: {
+        cabinet: {
+          include: {
+            room: {
+              include: {
+                dataCenter: true,
+              },
+            },
+          },
+        },
+        panels: {
+          include: {
+            ports: true,
+          },
+        },
+      },
+    });
+  }
+
   async getAllDevices() {
     return await prisma.device.findMany({
       include: {

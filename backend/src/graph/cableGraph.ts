@@ -90,6 +90,34 @@ class CableGraphService {
   }
 
   /**
+   * 获取线缆连接的两个端口ID
+   */
+  async getCablePortIds(cableId: string): Promise<string[] | null> {
+    const session = neo4jConnection.getSession();
+    try {
+      const result = await session.run(
+        `
+        MATCH (portA:Port)-[:CONNECTED_BY]->(cable:Cable {id: $cableId})
+              -[:CONNECTED_BY]->(portB:Port)
+        RETURN portA.id as portAId, portB.id as portBId
+        `,
+        { cableId }
+      );
+
+      if (result.records.length > 0) {
+        const record = result.records[0];
+        return [
+          record.get('portAId'),
+          record.get('portBId')
+        ];
+      }
+      return null;
+    } finally {
+      await session.close();
+    }
+  }
+
+  /**
    * 查询面板的所有连接关系
    */
   async findPanelConnections(panelId: string): Promise<ConnectionQueryResult[]> {

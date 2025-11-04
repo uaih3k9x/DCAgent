@@ -45,6 +45,23 @@ class DataCenterService {
     });
   }
 
+  async getDataCenterByShortId(shortId: number): Promise<DataCenter | null> {
+    return prisma.dataCenter.findUnique({
+      where: { shortId },
+      include: {
+        rooms: {
+          include: {
+            cabinets: {
+              include: {
+                devices: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
   async createDataCenter(data: CreateDataCenterInput): Promise<DataCenter> {
     return prisma.dataCenter.create({
       data,

@@ -16,6 +16,10 @@ import {
   Collapse,
   Empty,
   Divider,
+  Tabs,
+  Table,
+  Popconfirm,
+  Badge,
 } from 'antd';
 import {
   ApiOutlined,
@@ -43,6 +47,8 @@ const { Sider, Content } = Layout;
 const { Title, Text } = Typography;
 const { Option } = Select;
 const { Panel: CollapsePanel } = Collapse;
+const { TabPane } = Tabs;
+const { Search } = Input;
 
 // 端口状态中文映射
 const portStatusMap: Record<PortStatus, { label: string; color: string }> = {
@@ -68,6 +74,11 @@ export default function PortManagementPage() {
   const [ports, setPorts] = useState<Port[]>([]);
   const [selectedPanel, setSelectedPanel] = useState<Panel | null>(null);
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('list');
+
+  // 列表视图的过滤状态
+  const [selectedPanelId, setSelectedPanelId] = useState<string>();
+  const [selectedStatus, setSelectedStatus] = useState<PortStatus>();
 
   // 对话框状态
   const [portModalVisible, setPortModalVisible] = useState(false);
@@ -103,12 +114,27 @@ export default function PortManagementPage() {
     }
   };
 
-  // 加载端口列表（按面板）
-  const loadPorts = async (panelId: string) => {
+  // 加载端口列表（支持按面板过滤、搜索、状态过滤）
+  const loadPorts = async (searchQuery?: string, panelId?: string, status?: PortStatus) => {
     setLoading(true);
     try {
-      const allPorts = await portService.getAll();
-      const filteredPorts = allPorts.filter((p) => p.panelId === panelId);
+      let allPorts;
+      if (searchQuery) {
+        allPorts = await portService.search(searchQuery);
+      } else {
+        allPorts = await portService.getAll();
+      }
+
+      // 应用面板过滤
+      let filteredPorts = panelId
+        ? allPorts.filter((p) => p.panelId === panelId)
+        : allPorts;
+
+      // 应用状态过滤
+      if (status) {
+        filteredPorts = filteredPorts.filter((p) => p.status === status);
+      }
+
       // 使用自然排序
       setPorts(sortPorts(filteredPorts));
     } catch (error) {
@@ -122,12 +148,13 @@ export default function PortManagementPage() {
   useEffect(() => {
     loadDevices();
     loadPanels();
+    loadPorts(); // 初始加载所有端口（用于列表视图）
   }, []);
 
-  // 选择面板
+  // 选择面板（用于可视化视图）
   const handleSelectPanel = (panel: Panel) => {
     setSelectedPanel(panel);
-    loadPorts(panel.id);
+    loadPorts(undefined, panel.id); // 只加载该面板的端口
   };
 
   // 打开端口编辑对话框
@@ -158,8 +185,11 @@ export default function PortManagementPage() {
       }
       setPortModalVisible(false);
       portForm.resetFields();
-      if (selectedPanel) {
-        loadPorts(selectedPanel.id);
+      // 重新加载端口列表
+      if (activeTab === 'visual' && selectedPanel) {
+        loadPorts(undefined, selectedPanel.id);
+      } else {
+        loadPorts(undefined, selectedPanelId, selectedStatus);
       }
     } catch (error: any) {
       if (error.errorFields) return;
@@ -180,8 +210,11 @@ export default function PortManagementPage() {
         try {
           await portService.delete(port.id);
           message.success('端口删除成功');
-          if (selectedPanel) {
-            loadPorts(selectedPanel.id);
+          // 重新加载端口列表
+          if (activeTab === 'visual' && selectedPanel) {
+            loadPorts(undefined, selectedPanel.id);
+          } else {
+            loadPorts(undefined, selectedPanelId, selectedStatus);
           }
         } catch (error) {
           message.error('删除失败');
@@ -196,11 +229,44 @@ export default function PortManagementPage() {
     try {
       await portService.updateStatus(portId, status);
       message.success('状态更新成功');
-      if (selectedPanel) {
-        loadPorts(selectedPanel.id);
+      // 重新加载端口列表
+      if (activeTab === 'visual' && selectedPanel) {
+        loadPorts(undefined, selectedPanel.id);
+      } else {
+        loadPorts(undefined, selectedPanelId, selectedStatus);
       }
     } catch (error) {
       message.error('状态更新失败');
+      console.error(error);
+    }
+  };
+
+  // 列表视图专用函数
+  const handleSearch = (value: string) => {
+    loadPorts(value, selectedPanelId, selectedStatus);
+  };
+
+  const handlePanelFilter = (value: string) => {
+    setSelectedPanelId(value);
+    loadPorts(undefined, value, selectedStatus);
+  };
+
+  const handleStatusFilter = (value: PortStatus) => {
+    setSelectedStatus(value);
+    loadPorts(undefined, selectedPanelId, value);
+  };
+
+  const handleBulkCreate = async () => {
+    try {
+      const values = await bulkCreateForm.validateFields();
+      await portService.createBulk(values.panelId, values.count, values.prefix);
+      message.success(`成功创建 ${values.count} 个端口`);
+      setBulkCreateModalVisible(false);
+      bulkCreateForm.resetFields();
+      loadPorts(undefined, selectedPanelId, selectedStatus);
+    } catch (error: any) {
+      if (error.errorFields) return;
+      message.error('批量创建失败');
       console.error(error);
     }
   };
@@ -344,13 +410,177 @@ export default function PortManagementPage() {
   return (
     <div className="port-management-page">
       <Title level={2}>
-        <ApiOutlined /> 端口管理（可视化）
+        <ApiOutlined /> 端口管理
       </Title>
-      <Text type="secondary" style={{ marginBottom: 24, display: 'block' }}>
-        选择面板查看端口的物理布局，支持精确到毫米的位置管理
-      </Text>
+      <p style={{ color: '#8c8c8c', marginBottom: 24 }}>
+        管理面板上的所有端口，支持批量创建、状态管理和可视化布局
+      </p>
 
-      <Layout style={{ background: '#fff', minHeight: 'calc(100vh - 200px)' }}>
+      <Tabs activeKey={activeTab} onChange={setActiveTab} type="card">
+        <TabPane tab={<span><ApiOutlined /> 端口列表</span>} key="list">
+          <Card>
+            <Space style={{ marginBottom: 16, width: '100%', justifyContent: 'space-between' }}>
+              <Space>
+                <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenPortModal()}>
+                  新建端口
+                </Button>
+                <Button
+                  type="default"
+                  icon={<ThunderboltOutlined />}
+                  onClick={() => setBulkCreateModalVisible(true)}
+                >
+                  批量创建
+                </Button>
+                <Select
+                  placeholder="选择面板"
+                  allowClear
+                  style={{ width: 200 }}
+                  onChange={handlePanelFilter}
+                  onClear={() => {
+                    setSelectedPanelId(undefined);
+                    loadPorts();
+                  }}
+                >
+                  {panels.map((panel) => {
+                    const device = devices.find((d) => d.id === panel.deviceId);
+                    return (
+                      <Option key={panel.id} value={panel.id}>
+                        {device?.name} - {panel.name}
+                      </Option>
+                    );
+                  })}
+                </Select>
+                <Select
+                  placeholder="选择状态"
+                  allowClear
+                  style={{ width: 120 }}
+                  onChange={handleStatusFilter}
+                  onClear={() => {
+                    setSelectedStatus(undefined);
+                    loadPorts();
+                  }}
+                >
+                  {Object.entries(portStatusMap).map(([key, value]) => (
+                    <Option key={key} value={key}>
+                      <Badge status={value.color as any} text={value.label} />
+                    </Option>
+                  ))}
+                </Select>
+              </Space>
+              <Search
+                placeholder="搜索端口号或标签"
+                allowClear
+                onSearch={handleSearch}
+                style={{ width: 300 }}
+              />
+            </Space>
+
+            <Table
+              columns={[
+                {
+                  title: 'ID',
+                  dataIndex: 'shortId',
+                  key: 'shortId',
+                  width: 80,
+                },
+                {
+                  title: '端口号',
+                  dataIndex: 'number',
+                  key: 'number',
+                },
+                {
+                  title: '标签',
+                  dataIndex: 'label',
+                  key: 'label',
+                  render: (text: string) => text || '-',
+                },
+                {
+                  title: '状态',
+                  dataIndex: 'status',
+                  key: 'status',
+                  render: (status: PortStatus, record: Port) => (
+                    <Select
+                      size="small"
+                      value={status}
+                      style={{ width: 100 }}
+                      onChange={(newStatus) => handleUpdatePortStatus(record.id, newStatus)}
+                    >
+                      {Object.entries(portStatusMap).map(([key, value]) => (
+                        <Option key={key} value={key}>
+                          <Badge status={value.color as any} text={value.label} />
+                        </Option>
+                      ))}
+                    </Select>
+                  ),
+                },
+                {
+                  title: '所属面板',
+                  dataIndex: 'panelId',
+                  key: 'panelId',
+                  render: (panelId: string) => {
+                    const panel = panels.find((p) => p.id === panelId);
+                    if (!panel) return '-';
+                    const device = devices.find((d) => d.id === panel.deviceId);
+                    return (
+                      <Space>
+                        <Tag color="blue">{device?.name}</Tag>
+                        <Tag color="green">{panel.name}</Tag>
+                      </Space>
+                    );
+                  },
+                },
+                {
+                  title: '创建时间',
+                  dataIndex: 'createdAt',
+                  key: 'createdAt',
+                  render: (text: string) => new Date(text).toLocaleString('zh-CN'),
+                },
+                {
+                  title: '操作',
+                  key: 'actions',
+                  width: 150,
+                  render: (_: any, record: Port) => (
+                    <Space>
+                      <Button
+                        type="link"
+                        size="small"
+                        icon={<EditOutlined />}
+                        onClick={() => handleOpenPortModal(record)}
+                      >
+                        编辑
+                      </Button>
+                      <Popconfirm
+                        title="确定要删除这个端口吗？"
+                        onConfirm={() => handleDeletePort(record)}
+                        okText="确定"
+                        cancelText="取消"
+                      >
+                        <Button type="link" size="small" danger icon={<DeleteOutlined />}>
+                          删除
+                        </Button>
+                      </Popconfirm>
+                    </Space>
+                  ),
+                },
+              ]}
+              dataSource={ports}
+              loading={loading}
+              rowKey="id"
+              pagination={{
+                pageSize: 20,
+                showSizeChanger: true,
+                showTotal: (total) => `共 ${total} 条`,
+              }}
+            />
+          </Card>
+        </TabPane>
+
+        <TabPane tab={<span><SettingOutlined /> 可视化管理</span>} key="visual">
+          <Text type="secondary" style={{ marginBottom: 16, display: 'block' }}>
+            选择面板查看端口的物理布局，支持精确到毫米的位置管理
+          </Text>
+
+      <Layout style={{ background: '#fff', minHeight: 'calc(100vh - 300px)' }}>
         {/* 左侧：设备和面板列表 */}
         <Sider
           width={300}
@@ -535,6 +765,8 @@ export default function PortManagementPage() {
           )}
         </Content>
       </Layout>
+        </TabPane>
+      </Tabs>
 
       {/* 端口编辑对话框 */}
       <Modal
@@ -607,6 +839,52 @@ export default function PortManagementPage() {
           <Form.Item name="speed" label="速率">
             <Input placeholder="例如：1000Mbps" />
           </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* 批量创建端口对话框 */}
+      <Modal
+        title="批量创建端口"
+        open={bulkCreateModalVisible}
+        onOk={handleBulkCreate}
+        onCancel={() => setBulkCreateModalVisible(false)}
+        okText="创建"
+        cancelText="取消"
+      >
+        <Form form={bulkCreateForm} layout="vertical">
+          <Form.Item
+            name="panelId"
+            label="所属面板"
+            rules={[{ required: true, message: '请选择面板' }]}
+          >
+            <Select placeholder="选择面板" showSearch optionFilterProp="children">
+              {panels.map((panel) => {
+                const device = devices.find((d) => d.id === panel.deviceId);
+                return (
+                  <Option key={panel.id} value={panel.id}>
+                    {device?.name} - {panel.name}
+                  </Option>
+                );
+              })}
+            </Select>
+          </Form.Item>
+          <Form.Item
+            name="count"
+            label="端口数量"
+            initialValue={24}
+            rules={[
+              { required: true, message: '请输入端口数量' },
+              { type: 'number', min: 1, max: 128, message: '端口数量必须在 1-128 之间' },
+            ]}
+          >
+            <InputNumber min={1} max={128} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="prefix" label="标签前缀" initialValue="Port-">
+            <Input placeholder="例如：Port-" />
+          </Form.Item>
+          <p style={{ color: '#8c8c8c', fontSize: '12px' }}>
+            将创建编号为 1 到 {bulkCreateForm.getFieldValue('count') || 24} 的端口，标签格式为 {bulkCreateForm.getFieldValue('prefix') || 'Port-'}1, {bulkCreateForm.getFieldValue('prefix') || 'Port-'}2, ...
+          </p>
         </Form>
       </Modal>
 

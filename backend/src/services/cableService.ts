@@ -84,10 +84,44 @@ class CableService {
   }
 
   /**
+   * 通过 shortId 获取线缆详情
+   */
+  async getCableByShortId(shortId: number) {
+    const cable = await prisma.cable.findUnique({
+      where: { shortId },
+    });
+
+    if (!cable) {
+      return null;
+    }
+
+    // 从图数据库查询连接关系
+    return cable;
+  }
+
+  /**
    * 获取所有线缆
    */
   async getAllCables() {
     return await prisma.cable.findMany({
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
+  /**
+   * 搜索线缆（根据标签、颜色、备注）
+   */
+  async searchCables(query: string) {
+    return await prisma.cable.findMany({
+      where: {
+        OR: [
+          { label: { contains: query, mode: 'insensitive' } },
+          { color: { contains: query, mode: 'insensitive' } },
+          { notes: { contains: query, mode: 'insensitive' } },
+        ],
+      },
       orderBy: {
         createdAt: 'desc',
       },
@@ -169,6 +203,101 @@ class CableService {
   async getNetworkTopology(panelId: string, maxDepth: number = 3) {
     return await cableGraphService.findNetworkTopology(panelId, maxDepth);
   }
+
+  /**
+   * 获取线缆连接的端点信息（用于扫码跳转）
+   * 返回线缆及其连接的两个端口的完整信息（包括所在面板、设备、机柜等层级）
+   */
+  async getCableEndpoints(cableId: string) {
+    // 获取线缆基本信息
+    const cable = await prisma.cable.findUnique({
+      where: { id: cableId },
+    });
+
+    if (!cable) {
+      return null;
+    }
+
+    // 从图数据库查询连接的两个端口ID
+    const portIds = await cableGraphService.getCablePortIds(cableId);
+
+    if (!portIds || portIds.length !== 2) {
+      return {
+        cable,
+        portA: null,
+        portB: null,
+      };
+    }
+
+    // 查询两个端口的完整信息
+    const portA = await prisma.port.findUnique({
+      where: { id: portIds[0] },
+      include: {
+        panel: {
+          include: {
+            device: {
+              include: {
+                cabinet: {
+                  include: {
+                    room: {
+                      include: {
+                        dataCenter: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const portB = await prisma.port.findUnique({
+      where: { id: portIds[1] },
+      include: {
+        panel: {
+          include: {
+            device: {
+              include: {
+                cabinet: {
+                  include: {
+                    room: {
+                      include: {
+                        dataCenter: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return {
+      cable,
+      portA,
+      portB,
+    };
+  }
+
+  /**
+   * 通过线缆的 shortId 获取端点信息
+   */
+  async getCableEndpointsByShortId(shortId: number) {
+    const cable = await prisma.cable.findUnique({
+      where: { shortId },
+    });
+
+    if (!cable) {
+      return null;
+    }
+
+    return await this.getCableEndpoints(cable.id);
+  }
 }
 
 export default new CableService();
+

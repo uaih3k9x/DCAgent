@@ -20,6 +20,10 @@ const idSchema = z.object({
   id: z.string().cuid('Invalid ID'),
 });
 
+const shortIdSchema = z.object({
+  shortId: z.number().int().positive('Invalid shortId'),
+});
+
 // GET /api/v1/datacenters - 获取列表
 router.get('/', async (req: Request, res: Response) => {
   try {
@@ -53,6 +57,24 @@ router.post('/get', async (req: Request, res: Response) => {
     }
     console.error('Error fetching datacenter:', error);
     res.status(500).json({ error: 'Failed to fetch datacenter' });
+  }
+});
+
+// POST /api/v1/datacenters/by-shortid - 根据shortId获取详情
+router.post('/by-shortid', async (req: Request, res: Response) => {
+  try {
+    const { shortId } = shortIdSchema.parse(req.body);
+    const datacenter = await dataCenterService.getDataCenterByShortId(shortId);
+    if (!datacenter) {
+      return res.status(404).json({ error: 'DataCenter not found' });
+    }
+    res.json(datacenter);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: error.errors });
+    }
+    console.error('Error fetching datacenter by shortId:', error);
+    res.status(500).json({ error: 'Failed to fetch datacenter by shortId' });
   }
 });
 

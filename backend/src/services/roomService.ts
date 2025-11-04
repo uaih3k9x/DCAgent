@@ -44,6 +44,20 @@ class RoomService {
     });
   }
 
+  async getRoomByShortId(shortId: number): Promise<Room | null> {
+    return prisma.room.findUnique({
+      where: { shortId },
+      include: {
+        dataCenter: true,
+        cabinets: {
+          include: {
+            devices: true,
+          },
+        },
+      },
+    });
+  }
+
   async getRoomsByDataCenter(dataCenterId: string): Promise<Room[]> {
     return prisma.room.findMany({
       where: { dataCenterId },

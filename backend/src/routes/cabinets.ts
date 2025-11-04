@@ -23,6 +23,10 @@ const idSchema = z.object({
   id: z.string().cuid('Invalid ID'),
 });
 
+const shortIdSchema = z.object({
+  shortId: z.number().int().positive('Invalid shortId'),
+});
+
 // GET /api/v1/cabinets - 获取列表
 router.get('/', async (req: Request, res: Response) => {
   try {
@@ -61,6 +65,24 @@ router.post('/get', async (req: Request, res: Response) => {
     }
     console.error('Error fetching cabinet:', error);
     res.status(500).json({ error: 'Failed to fetch cabinet' });
+  }
+});
+
+// POST /api/v1/cabinets/by-shortid - 根据shortId获取详情
+router.post('/by-shortid', async (req: Request, res: Response) => {
+  try {
+    const { shortId } = shortIdSchema.parse(req.body);
+    const cabinet = await cabinetService.getCabinetByShortId(shortId);
+    if (!cabinet) {
+      return res.status(404).json({ error: 'Cabinet not found' });
+    }
+    res.json(cabinet);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: error.errors });
+    }
+    console.error('Error fetching cabinet by shortId:', error);
+    res.status(500).json({ error: 'Failed to fetch cabinet by shortId' });
   }
 });
 
