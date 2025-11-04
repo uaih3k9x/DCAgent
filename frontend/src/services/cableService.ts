@@ -57,4 +57,10 @@ export const cableService = {
     const response = await api.post('/cables/network-topology', body);
     return response.data;
   },
+
+  // 获取线缆端点信息（包含完整层级）
+  async getCableEndpoints(cableId: string): Promise<any> {
+    const response = await api.post('/cables/endpoints', { id: cableId });
+    return response.data;
+  },
 };

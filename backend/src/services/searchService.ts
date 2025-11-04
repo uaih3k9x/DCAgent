@@ -116,6 +116,7 @@ class SearchService {
             type: panel.type,
             portCount: panel.portCount,
             deviceId: panel.deviceId,
+            cabinetId: (panel as any).device?.cabinetId,
           },
         }))
       );

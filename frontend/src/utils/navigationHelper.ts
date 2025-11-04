@@ -36,38 +36,59 @@ export function navigateToEntity(
       break;
 
     case 'Device':
-      path = '/devices';
-      state = { selectedId: id };
-      break;
-
-    case 'Panel':
-      // 跳转到端口管理页的可视化tab，并选中该面板
-      path = '/ports';
-      state = {
-        activeTab: 'visual',
-        selectedPanelId: id,
-      };
-      break;
-
-    case 'Port':
-      // 跳转到端口管理页的可视化tab，并选中该端口所在面板
-      if (metadata?.panelId) {
-        path = '/ports';
+      // 跳转到设备所在机柜的可视化视图，并定位到该设备的U位
+      if (metadata?.cabinetId) {
+        path = '/cabinets';
         state = {
           activeTab: 'visual',
-          selectedPanelId: metadata.panelId,
-          highlightPortId: id, // 高亮显示该端口
+          selectedCabinetId: metadata.cabinetId,
+          selectedDeviceId: id,
+          showDevicePanels: true, // 显示设备的面板视图
         };
       } else {
-        path = '/ports';
+        // 如果没有机柜信息，降级到设备列表页（仅用于直接访问URL）
+        path = '/devices';
         state = { selectedId: id };
       }
       break;
 
+    case 'Panel':
+      // 跳转到面板所在设备的机柜可视化视图，并显示面板详情
+      if (metadata?.deviceId && metadata?.cabinetId) {
+        path = '/cabinets';
+        state = {
+          activeTab: 'visual',
+          selectedCabinetId: metadata.cabinetId,
+          selectedDeviceId: metadata.deviceId,
+          selectedPanelId: id,
+          showDevicePanels: true,
+        };
+      } else {
+        // 降级方案：跳转到端口管理页
+        path = '/ports';
+        state = {
+          activeTab: 'visual',
+          selectedPanelId: id,
+        };
+      }
+      break;
+
+    case 'Port':
+      // 端口搜索：跳转到端口详情页，显示双面板视图（本端和对端）
+      path = '/port-detail';
+      state = {
+        portId: id,
+        panelId: metadata?.panelId,
+      };
+      break;
+
     case 'Cable':
-      // 线缆不直接跳转，需要先查询端点信息
-      // 这个逻辑在 AppHeader 组件中处理
-      return null;
+      // 线缆搜索：跳转到端口详情页，显示两端连接
+      path = '/port-detail';
+      state = {
+        cableId: id,
+      };
+      break;
 
     default:
       console.warn('Unknown entity type:', type);

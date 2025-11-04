@@ -10,6 +10,8 @@ import DeviceList from './pages/DeviceList';
 import PanelList from './pages/PanelList';
 import PortManagementPage from './pages/PortManagementPage';
 import CableTopology from './pages/CableTopology';
+import PortDetailView from './pages/PortDetailView';
+import BulkDeploymentPage from './pages/BulkDeploymentPage';
 
 const { Content } = Layout;
 
@@ -37,7 +39,9 @@ function App() {
               <Route path="/devices" element={<DeviceList />} />
               <Route path="/panels" element={<PanelList />} />
               <Route path="/ports" element={<PortManagementPage />} />
+              <Route path="/port-detail" element={<PortDetailView />} />
               <Route path="/topology" element={<CableTopology />} />
+              <Route path="/bulk-deployment" element={<BulkDeploymentPage />} />
             </Routes>
           </Content>
         </Layout>

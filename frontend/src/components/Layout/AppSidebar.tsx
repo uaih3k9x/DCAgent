@@ -4,9 +4,8 @@ import {
   DatabaseOutlined,
   HomeOutlined,
   InboxOutlined,
-  CloudServerOutlined,
   ApartmentOutlined,
-  ApiOutlined,
+  CloudUploadOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -42,11 +41,12 @@ export default function AppSidebar() {
           icon: <InboxOutlined />,
           label: '机柜',
         },
-        {
-          key: '/devices',
-          icon: <CloudServerOutlined />,
-          label: '设备',
-        },
+        // 设备菜单已隐藏 - 通过机柜可视化管理
+        // {
+        //   key: '/devices',
+        //   icon: <CloudServerOutlined />,
+        //   label: '设备',
+        // },
       ],
     },
     {
@@ -54,22 +54,28 @@ export default function AppSidebar() {
       icon: <ApartmentOutlined />,
       label: '连接管理',
       children: [
-        {
-          key: '/panels',
-          icon: <ApartmentOutlined />,
-          label: '面板',
-        },
-        {
-          key: '/ports',
-          icon: <ApiOutlined />,
-          label: '端口',
-        },
+        // 面板和端口菜单已隐藏 - 通过设备可视化管理
+        // {
+        //   key: '/panels',
+        //   icon: <ApartmentOutlined />,
+        //   label: '面板',
+        // },
+        // {
+        //   key: '/ports',
+        //   icon: <ApiOutlined />,
+        //   label: '端口',
+        // },
         {
           key: '/topology',
           icon: <ApartmentOutlined />,
           label: '线缆拓扑',
         },
       ],
+    },
+    {
+      key: '/bulk-deployment',
+      icon: <CloudUploadOutlined />,
+      label: '批量上架',
     },
   ];
 
