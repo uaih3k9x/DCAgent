@@ -7,6 +7,8 @@ import {
   CloudServerOutlined,
   ApartmentOutlined,
   ApiOutlined,
+  EyeOutlined,
+  ContainerOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -43,6 +45,11 @@ export default function AppSidebar() {
           label: '机柜',
         },
         {
+          key: '/cabinets/visual',
+          icon: <ContainerOutlined />,
+          label: '机柜可视化',
+        },
+        {
           key: '/devices',
           icon: <CloudServerOutlined />,
           label: '设备',
@@ -63,6 +70,11 @@ export default function AppSidebar() {
           key: '/ports',
           icon: <ApiOutlined />,
           label: '端口',
+        },
+        {
+          key: '/ports/visual',
+          icon: <EyeOutlined />,
+          label: '端口可视化',
         },
         {
           key: '/topology',

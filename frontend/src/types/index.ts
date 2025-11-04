@@ -69,6 +69,19 @@ export interface Panel {
   name: string;
   type: PanelType;
   deviceId: string;
+  // 物理布局信息
+  position?: {
+    x: number;      // X坐标 (mm)
+    y: number;      // Y坐标 (mm)
+  };
+  size?: {
+    width: number;  // 宽度 (mm)
+    height: number; // 高度 (mm)
+  };
+  // 视觉展示
+  image?: string;   // 图片URL
+  svgPath?: string; // SVG路径或内容
+  backgroundColor?: string; // 背景色
   createdAt: string;
   updatedAt: string;
 }
@@ -86,6 +99,15 @@ export interface Port {
   label?: string;
   status: PortStatus;
   panelId: string;
+  // 物理布局信息（相对于面板的坐标）
+  position?: {
+    x: number;      // X坐标 (mm)
+    y: number;      // Y坐标 (mm)
+  };
+  size?: {
+    width: number;  // 宽度 (mm)
+    height: number; // 高度 (mm)
+  };
   // 扩展字段 - 待实现
   ipAddress?: string;
   vlan?: string;

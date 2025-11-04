@@ -5,11 +5,29 @@ export interface CreatePanelDto {
   name: string;
   type: PanelType;
   deviceId: string;
+  // 物理布局
+  positionX?: number;
+  positionY?: number;
+  width?: number;
+  height?: number;
+  // 视觉样式
+  backgroundColor?: string;
+  image?: string;
+  svgPath?: string;
 }
 
 export interface UpdatePanelDto {
   name?: string;
   type?: PanelType;
+  // 物理布局
+  positionX?: number;
+  positionY?: number;
+  width?: number;
+  height?: number;
+  // 视觉样式
+  backgroundColor?: string;
+  image?: string;
+  svgPath?: string;
 }
 
 class PanelService {

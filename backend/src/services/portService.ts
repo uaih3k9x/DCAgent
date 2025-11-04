@@ -6,12 +6,22 @@ export interface CreatePortDto {
   label?: string;
   status?: PortStatus;
   panelId: string;
+  // 物理布局（相对于面板的坐标）
+  positionX?: number;
+  positionY?: number;
+  width?: number;
+  height?: number;
 }
 
 export interface UpdatePortDto {
   number?: string;
   label?: string;
   status?: PortStatus;
+  // 物理布局
+  positionX?: number;
+  positionY?: number;
+  width?: number;
+  height?: number;
 }
 
 class PortService {

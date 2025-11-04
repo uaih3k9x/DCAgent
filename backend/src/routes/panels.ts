@@ -9,12 +9,30 @@ const createPanelSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   type: z.enum(['ETHERNET', 'FIBER', 'POWER', 'SERIAL', 'USB', 'OTHER']),
   deviceId: z.string().cuid('Invalid device ID'),
+  // 物理布局
+  positionX: z.number().optional(),
+  positionY: z.number().optional(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+  // 视觉样式
+  backgroundColor: z.string().optional(),
+  image: z.string().optional(),
+  svgPath: z.string().optional(),
 });
 
 const updatePanelSchema = z.object({
   id: z.string().cuid('Invalid ID'),
   name: z.string().min(1).optional(),
   type: z.enum(['ETHERNET', 'FIBER', 'POWER', 'SERIAL', 'USB', 'OTHER']).optional(),
+  // 物理布局
+  positionX: z.number().optional(),
+  positionY: z.number().optional(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+  // 视觉样式
+  backgroundColor: z.string().optional(),
+  image: z.string().optional(),
+  svgPath: z.string().optional(),
 });
 
 const idSchema = z.object({

@@ -1,0 +1,14 @@
+-- AlterTable
+ALTER TABLE "Panel" ADD COLUMN     "backgroundColor" TEXT,
+ADD COLUMN     "height" DOUBLE PRECISION,
+ADD COLUMN     "image" TEXT,
+ADD COLUMN     "positionX" DOUBLE PRECISION,
+ADD COLUMN     "positionY" DOUBLE PRECISION,
+ADD COLUMN     "svgPath" TEXT,
+ADD COLUMN     "width" DOUBLE PRECISION;
+
+-- AlterTable
+ALTER TABLE "Port" ADD COLUMN     "height" DOUBLE PRECISION,
+ADD COLUMN     "positionX" DOUBLE PRECISION,
+ADD COLUMN     "positionY" DOUBLE PRECISION,
+ADD COLUMN     "width" DOUBLE PRECISION;

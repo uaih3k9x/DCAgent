@@ -88,14 +88,23 @@ enum PanelType {
 
 // 面板（设备上的接口面板）
 model Panel {
-  id        String    @id @default(uuid())
-  name      String
-  type      PanelType
-  deviceId  String
-  device    Device    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
-  ports     Port[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id              String    @id @default(uuid())
+  name            String
+  type            PanelType
+  deviceId        String
+  device          Device    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  ports           Port[]
+  // 物理布局信息（单位：mm）
+  positionX       Float?    // X坐标
+  positionY       Float?    // Y坐标
+  width           Float?    // 宽度
+  height          Float?    // 高度
+  // 视觉样式
+  backgroundColor String?   // 背景颜色
+  image           String?   // 图片URL
+  svgPath         String?   // SVG路径
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
 
 // 端口状态枚举
@@ -114,6 +123,11 @@ model Port {
   status    PortStatus @default(AVAILABLE)
   panelId   String
   panel     Panel      @relation(fields: [panelId], references: [id], onDelete: Cascade)
+  // 物理布局信息（相对于面板的坐标，单位：mm）
+  positionX Float?     // X坐标
+  positionY Float?     // Y坐标
+  width     Float?     // 宽度
+  height    Float?     // 高度
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 

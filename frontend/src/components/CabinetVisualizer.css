@@ -1,0 +1,247 @@
+.cabinet-visualizer {
+  width: 100%;
+  padding: 16px;
+}
+
+.cabinet-card {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.cabinet-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.cabinet-header h4 {
+  margin: 0;
+  color: #262626;
+}
+
+.cabinet-container {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+/* U位标尺 */
+.u-ruler {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: #fafafa;
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
+  padding: 2px;
+  min-width: 50px;
+}
+
+.u-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  border-bottom: 1px solid #e8e8e8;
+  transition: all 0.2s ease;
+}
+
+.u-mark:last-child {
+  border-bottom: none;
+}
+
+.u-mark.available {
+  background: #f6ffed;
+}
+
+.u-mark.occupied {
+  background: #fff2e8;
+}
+
+.u-number {
+  font-size: 10px;
+  color: #666;
+  font-weight: 500;
+  user-select: none;
+}
+
+/* 机柜SVG容器 */
+.cabinet-svg-container {
+  flex: 1;
+  background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+  border-radius: 8px;
+  padding: 20px 10px 20px 10px;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.cabinet-svg {
+  display: block;
+  margin: 0 auto;
+}
+
+/* 设备交互效果 */
+.device-group {
+  transition: all 0.2s ease;
+}
+
+.device-group:hover .device-shape {
+  filter: brightness(1.1);
+}
+
+.device-group:active .device-shape {
+  filter: brightness(0.9);
+}
+
+.device-shape {
+  transition: all 0.2s ease;
+}
+
+/* 空U位效果 */
+.empty-slot rect {
+  transition: all 0.2s ease;
+}
+
+.empty-slot:hover rect {
+  stroke: #1890ff;
+  stroke-width: 2;
+  fill: #e6f7ff;
+  opacity: 0.5;
+}
+
+/* 机柜框架样式 */
+.cabinet-frame {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+/* 图例 */
+.cabinet-legend {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #e8e8e8;
+}
+
+.legend-title {
+  color: #8c8c8c;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #595959;
+}
+
+.legend-color {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  border: 1px solid #d9d9d9;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .cabinet-container {
+    flex-direction: column;
+  }
+
+  .u-ruler {
+    flex-direction: row;
+    width: 100%;
+    min-width: auto;
+    height: 40px;
+  }
+
+  .u-mark {
+    flex: 1;
+    border-bottom: none;
+    border-right: 1px solid #e8e8e8;
+  }
+
+  .u-mark:last-child {
+    border-right: none;
+  }
+
+  .cabinet-svg-container {
+    width: 100%;
+    overflow-x: auto;
+  }
+}
+
+/* 动画效果 */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.device-group {
+  animation: slideIn 0.3s ease-out;
+}
+
+/* U位高亮效果 */
+.u-ruler .u-mark:hover {
+  background: #e6f7ff;
+  border-color: #1890ff;
+  transform: scale(1.02);
+}
+
+/* 状态指示器 */
+.status-indicator {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #52c41a;
+}
+
+.status-indicator.warning {
+  background: #faad14;
+}
+
+.status-indicator.error {
+  background: #f5222d;
+}
+
+/* 拖拽效果 */
+.device-group.dragging {
+  opacity: 0.7;
+  cursor: grabbing;
+}
+
+.device-group.drag-over {
+  filter: brightness(1.2);
+}
+
+/* 加载状态 */
+.cabinet-visualizer.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.cabinet-visualizer.loading .cabinet-svg {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}

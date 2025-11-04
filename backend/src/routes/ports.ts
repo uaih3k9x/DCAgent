@@ -10,6 +10,11 @@ const createPortSchema = z.object({
   label: z.string().optional(),
   status: z.enum(['AVAILABLE', 'OCCUPIED', 'RESERVED', 'FAULTY']).optional(),
   panelId: z.string().cuid('Invalid panel ID'),
+  // 物理布局（相对于面板的坐标）
+  positionX: z.number().optional(),
+  positionY: z.number().optional(),
+  width: z.number().optional(),
+  height: z.number().optional(),
 });
 
 const createBulkPortsSchema = z.object({
@@ -23,6 +28,11 @@ const updatePortSchema = z.object({
   number: z.string().min(1).optional(),
   label: z.string().optional(),
   status: z.enum(['AVAILABLE', 'OCCUPIED', 'RESERVED', 'FAULTY']).optional(),
+  // 物理布局
+  positionX: z.number().optional(),
+  positionY: z.number().optional(),
+  width: z.number().optional(),
+  height: z.number().optional(),
 });
 
 const updatePortStatusSchema = z.object({
