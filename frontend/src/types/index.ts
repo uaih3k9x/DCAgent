@@ -129,6 +129,7 @@ export interface Port {
   label?: string;
   status: PortStatus;
   panelId: string;
+  portType?: string; // 端口类型 (RJ45, SFP, SFP+, 等)
   // 物理布局信息（相对于面板的坐标）
   position?: {
     x: number;      // X坐标 (mm)

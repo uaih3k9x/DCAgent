@@ -166,8 +166,10 @@ export class PanelTemplateService {
     // 根据模板的端口定义创建端口
     const portDefinitions = template.portDefinitions as Array<{
       number: string;
+      portType?: string; // 端口类型
       position: { x: number; y: number };
       size: { width: number; height: number };
+      label?: string; // 端口标签
     }>;
 
     const ports = await Promise.all(
@@ -176,6 +178,8 @@ export class PanelTemplateService {
           data: {
             number: portDef.number,
             panelId: panel.id,
+            portType: portDef.portType, // 保存端口类型
+            label: portDef.label, // 保存端口标签
             positionX: portDef.position.x,
             positionY: portDef.position.y,
             width: portDef.size.width,

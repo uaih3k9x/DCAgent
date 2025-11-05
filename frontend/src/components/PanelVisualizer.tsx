@@ -1,6 +1,8 @@
 import React from 'react';
 import { Panel, Port, PortStatus } from '@/types';
 import { Tooltip } from 'antd';
+import { PortType, getPortSize } from '@/constants/portSizes';
+import { getPortIcon } from '@/constants/portIcons';
 import './PanelVisualizer.css';
 
 interface PanelVisualizerProps {
@@ -51,6 +53,10 @@ export const PanelVisualizer: React.FC<PanelVisualizerProps> = ({
     const { width, height } = port.size;
     const color = portStatusColors[port.status];
 
+    // 获取端口类型信息
+    const portTypeInfo = port.portType ? getPortSize(port.portType as PortType) : null;
+    const portIcon = port.portType ? getPortIcon(port.portType as PortType) : null;
+
     return (
       <Tooltip
         key={port.id}
@@ -58,6 +64,7 @@ export const PanelVisualizer: React.FC<PanelVisualizerProps> = ({
           <div>
             <div><strong>{port.label || `端口 ${port.number}`}</strong></div>
             <div>编号: {port.number}</div>
+            {portTypeInfo && <div>类型: {portTypeInfo.label}</div>}
             <div>状态: {portStatusLabels[port.status]}</div>
             {port.ipAddress && <div>IP: {port.ipAddress}</div>}
             {port.vlan && <div>VLAN: {port.vlan}</div>}
@@ -70,30 +77,66 @@ export const PanelVisualizer: React.FC<PanelVisualizerProps> = ({
           onClick={() => onPortClick?.(port)}
           style={{ cursor: onPortClick ? 'pointer' : 'default' }}
         >
-          {/* 端口矩形 */}
-          <rect
-            x={padding + x}
-            y={padding + y}
-            width={width}
-            height={height}
-            fill={color}
-            stroke="#333"
-            strokeWidth="1"
-            className="port-rect"
-          />
-          {/* 端口编号 */}
-          <text
-            x={padding + x + width / 2}
-            y={padding + y + height / 2}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fill="#fff"
-            fontSize="12"
-            fontWeight="bold"
-            style={{ pointerEvents: 'none', userSelect: 'none' }}
-          >
-            {port.number}
-          </text>
+          {/* 如果有端口类型图标，使用SVG图标 */}
+          {portIcon ? (
+            <g transform={`translate(${padding + x}, ${padding + y})`}>
+              {/* 状态指示边框 */}
+              <rect
+                x={-1}
+                y={-1}
+                width={width + 2}
+                height={height + 2}
+                fill="none"
+                stroke={color}
+                strokeWidth="2"
+                rx="1"
+                className="port-status-border"
+              />
+              {/* SVG 图标 */}
+              <g
+                dangerouslySetInnerHTML={{ __html: portIcon }}
+                transform={`scale(${width / getPortSize(port.portType as PortType).width}, ${height / getPortSize(port.portType as PortType).height})`}
+              />
+              {/* 端口编号 - 显示在图标上方 */}
+              <text
+                x={width / 2}
+                y={-4}
+                textAnchor="middle"
+                fill="#333"
+                fontSize="10"
+                fontWeight="bold"
+                style={{ pointerEvents: 'none', userSelect: 'none' }}
+              >
+                {port.number}
+              </text>
+            </g>
+          ) : (
+            /* 没有图标时，使用原有的矩形显示 */
+            <>
+              <rect
+                x={padding + x}
+                y={padding + y}
+                width={width}
+                height={height}
+                fill={color}
+                stroke="#333"
+                strokeWidth="1"
+                className="port-rect"
+              />
+              <text
+                x={padding + x + width / 2}
+                y={padding + y + height / 2}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fill="#fff"
+                fontSize="12"
+                fontWeight="bold"
+                style={{ pointerEvents: 'none', userSelect: 'none' }}
+              >
+                {port.number}
+              </text>
+            </>
+          )}
         </g>
       </Tooltip>
     );

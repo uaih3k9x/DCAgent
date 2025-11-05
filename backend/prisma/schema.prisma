@@ -153,6 +153,7 @@ model Port {
   status    PortStatus @default(AVAILABLE)
   panelId   String
   panel     Panel      @relation(fields: [panelId], references: [id], onDelete: Cascade)
+  portType  String?    // 端口类型 (RJ45, SFP, SFP+, QSFP, 等)
   // 物理布局信息（相对于面板的坐标，单位：mm）
   positionX Float?     // X坐标
   positionY Float?     // Y坐标
