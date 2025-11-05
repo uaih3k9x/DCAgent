@@ -28,9 +28,17 @@ const updatePortSchema = z.object({
   number: z.string().min(1).optional(),
   label: z.string().optional(),
   status: z.enum(['AVAILABLE', 'OCCUPIED', 'RESERVED', 'FAULTY']).optional(),
-  // 物理布局
+  // 物理布局 - 支持两种格式
+  position: z.object({
+    x: z.number(),
+    y: z.number(),
+  }).optional(),
   positionX: z.number().optional(),
   positionY: z.number().optional(),
+  size: z.object({
+    width: z.number(),
+    height: z.number(),
+  }).optional(),
   width: z.number().optional(),
   height: z.number().optional(),
 });

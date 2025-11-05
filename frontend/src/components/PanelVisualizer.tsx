@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Panel, Port, PortStatus } from '@/types';
-import { Tooltip } from 'antd';
+import { Tooltip, Button, Space } from 'antd';
+import { EditOutlined, LockOutlined, UnlockOutlined } from '@ant-design/icons';
 import { PortType, getPortSize } from '@/constants/portSizes';
 import { getPortIcon } from '@/constants/portIcons';
 import './PanelVisualizer.css';
@@ -9,9 +10,11 @@ interface PanelVisualizerProps {
   panel: Panel;
   ports: Port[];
   onPortClick?: (port: Port) => void;
+  onPortPositionChange?: (portId: string, x: number, y: number) => void; // 新增：端口位置变化回调
   scale?: number; // 缩放比例，默认 1mm = 1px
   labelMode?: 'always' | 'hover'; // 标签显示模式：always=始终显示，hover=悬浮显示
   showPortNumber?: boolean; // 是否显示端口编号（默认true）
+  allowEdit?: boolean; // 是否允许编辑模式（默认false）
 }
 
 // 端口状态颜色映射
@@ -34,20 +37,62 @@ export const PanelVisualizer: React.FC<PanelVisualizerProps> = ({
   panel,
   ports,
   onPortClick,
+  onPortPositionChange,
   scale = 1,
   labelMode = 'always', // 默认始终显示标签
   showPortNumber = true, // 默认显示端口编号
+  allowEdit = false, // 默认不允许编辑
 }) => {
-  const [hoveredPortId, setHoveredPortId] = React.useState<string | null>(null);
+  const [hoveredPortId, setHoveredPortId] = useState<string | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false); // 编辑模式状态
+  const [draggingPort, setDraggingPort] = useState<{ port: Port; startX: number; startY: number } | null>(null);
 
   // 默认使用标准 1U 尺寸（19 英寸机架）
-  const panelWidth = panel.size?.width || 482.6;
-  const panelHeight = panel.size?.height || 44.45;
+  const panelWidth = (panel.size?.width || (panel as any).width) || 482.6;
+  const panelHeight = (panel.size?.height || (panel as any).height) || 44.45;
 
   // SVG 画布尺寸（添加边距）
   const padding = 20;
   const viewBoxWidth = panelWidth + padding * 2;
   const viewBoxHeight = panelHeight + padding * 2;
+
+  // 处理端口拖拽开始
+  const handlePortMouseDown = (port: Port, e: React.MouseEvent) => {
+    if (!isEditMode || !port.position) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    setDraggingPort({
+      port,
+      startX: e.clientX,
+      startY: e.clientY,
+    });
+  };
+
+  // 处理端口拖拽中
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!draggingPort || !draggingPort.port.position) return;
+
+    const deltaX = (e.clientX - draggingPort.startX) / scale;
+    const deltaY = (e.clientY - draggingPort.startY) / scale;
+
+    const newX = Math.max(0, Math.min(panelWidth - (draggingPort.port.size?.width || 15), (draggingPort.port.position.x || 0) + deltaX));
+    const newY = Math.max(0, Math.min(panelHeight - (draggingPort.port.size?.height || 12), (draggingPort.port.position.y || 0) + deltaY));
+
+    onPortPositionChange?.(draggingPort.port.id, newX, newY);
+
+    setDraggingPort({
+      ...draggingPort,
+      startX: e.clientX,
+      startY: e.clientY,
+    });
+  };
+
+  // 处理端口拖拽结束
+  const handleMouseUp = () => {
+    setDraggingPort(null);
+  };
 
   // 检测标签是否会被遮挡（超出面板边界或与其他端口重叠）
   const shouldLabelBeAbove = (port: Port): boolean => {
@@ -91,6 +136,9 @@ export const PanelVisualizer: React.FC<PanelVisualizerProps> = ({
     // 根据模式决定是否显示标签
     const showLabel = showPortNumber && (labelMode === 'always' || hoveredPortId === port.id);
 
+    // 编辑模式下的光标样式
+    const cursorStyle = isEditMode ? 'move' : (onPortClick ? 'pointer' : 'default');
+
     return (
       <Tooltip
         key={port.id}
@@ -109,10 +157,11 @@ export const PanelVisualizer: React.FC<PanelVisualizerProps> = ({
       >
         <g
           className="port"
-          onClick={() => onPortClick?.(port)}
+          onClick={() => !isEditMode && onPortClick?.(port)}
+          onMouseDown={(e) => handlePortMouseDown(port, e)}
           onMouseEnter={() => setHoveredPortId(port.id)}
           onMouseLeave={() => setHoveredPortId(null)}
-          style={{ cursor: onPortClick ? 'pointer' : 'default' }}
+          style={{ cursor: cursorStyle }}
         >
           {/* 如果有端口类型图标，使用SVG图标 */}
           {portIcon ? (
@@ -183,11 +232,26 @@ export const PanelVisualizer: React.FC<PanelVisualizerProps> = ({
 
   return (
     <div className="panel-visualizer">
-      <div className="panel-header">
-        <h3>{panel.name}</h3>
-        <div className="panel-info">
-          尺寸: {panelWidth} × {panelHeight} mm
+      <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h3>{panel.name}</h3>
+          <div className="panel-info">
+            尺寸: {panelWidth} × {panelHeight} mm
+            {ports.length === 0 && <span style={{ marginLeft: 16, color: '#999' }}>暂无端口</span>}
+          </div>
         </div>
+        {allowEdit && onPortPositionChange && (
+          <Space>
+            <Button
+              type={isEditMode ? 'primary' : 'default'}
+              icon={isEditMode ? <UnlockOutlined /> : <LockOutlined />}
+              onClick={() => setIsEditMode(!isEditMode)}
+              size="small"
+            >
+              {isEditMode ? '编辑中' : '解锁编辑'}
+            </Button>
+          </Space>
+        )}
       </div>
 
       <svg
@@ -195,6 +259,10 @@ export const PanelVisualizer: React.FC<PanelVisualizerProps> = ({
         width={viewBoxWidth * scale}
         height={viewBoxHeight * scale}
         className="panel-svg"
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        style={{ cursor: draggingPort ? 'move' : 'default' }}
       >
         {/* 面板背景 */}
         <rect

@@ -147,6 +147,8 @@ export interface Port {
     width: number;  // 宽度 (mm)
     height: number; // 高度 (mm)
   };
+  // 连接信息
+  cableEndpoints?: CableEndpoint[]; // 该端口连接的线缆端点
   // 扩展字段 - 待实现
   ipAddress?: string;
   vlan?: string;
@@ -162,6 +164,9 @@ export enum CableType {
   CAT7 = 'CAT7',
   FIBER_SM = 'FIBER_SM',
   FIBER_MM = 'FIBER_MM',
+  QSFP_TO_SFP = 'QSFP_TO_SFP',
+  QSFP_TO_QSFP = 'QSFP_TO_QSFP',
+  SFP_TO_SFP = 'SFP_TO_SFP',
   POWER = 'POWER',
   OTHER = 'OTHER',
 }
@@ -173,8 +178,20 @@ export interface Cable {
   length?: number;
   color?: string;
   notes?: string;
+  isBranched?: boolean; // 是否为分支线缆（1对多）
+  endpoints?: CableEndpoint[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CableEndpoint {
+  id: string;
+  cableId: string;
+  cable?: Cable;
+  portId: string;
+  port?: Port;
+  endType: string; // "A" 表示主端，"B1", "B2"等表示分支端
+  createdAt: string;
 }
 
 export interface CableConnection {

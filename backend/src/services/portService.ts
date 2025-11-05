@@ -17,9 +17,17 @@ export interface UpdatePortDto {
   number?: string;
   label?: string;
   status?: PortStatus;
-  // 物理布局
+  // 物理布局 - 支持两种格式
+  position?: {
+    x: number;
+    y: number;
+  };
   positionX?: number;
   positionY?: number;
+  size?: {
+    width: number;
+    height: number;
+  };
   width?: number;
   height?: number;
 }
@@ -79,6 +87,11 @@ class PortService {
             },
           },
         },
+        cableEndpoints: {
+          include: {
+            cable: true,
+          },
+        },
       },
     });
   }
@@ -127,6 +140,13 @@ class PortService {
   async getPortsByPanel(panelId: string) {
     return await prisma.port.findMany({
       where: { panelId },
+      include: {
+        cableEndpoints: {
+          include: {
+            cable: true,
+          },
+        },
+      },
       orderBy: {
         number: 'asc',
       },
@@ -147,9 +167,17 @@ class PortService {
   }
 
   async updatePort(id: string, data: UpdatePortDto) {
+    // 处理 position 和 size 对象
+    const { position, size, ...restData } = data;
+    const portData = {
+      ...restData,
+      ...(position && { positionX: position.x, positionY: position.y }),
+      ...(size && { width: size.width, height: size.height }),
+    };
+
     return await prisma.port.update({
       where: { id },
-      data,
+      data: portData,
       include: {
         panel: {
           include: {

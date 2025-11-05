@@ -1196,17 +1196,32 @@ export default function CabinetList() {
                         />
                       )}
 
-                      {ports.length === 0 ? (
-                        <Empty description="该面板暂无端口" />
-                      ) : (
-                        <PanelVisualizer
-                          panel={panel}
-                          ports={ports}
-                          onPortClick={(port) => {
-                            message.info(`端口: ${port.number} - 状态: ${port.status}`);
-                          }}
-                        />
-                      )}
+                      <PanelVisualizer
+                        panel={panel}
+                        ports={ports}
+                        onPortClick={(port) => {
+                          message.info(`端口: ${port.number} - 状态: ${port.status}`);
+                        }}
+                        onPortPositionChange={async (portId, x, y) => {
+                          try {
+                            // 后端使用 positionX 和 positionY 字段，而不是 position 对象
+                            await portService.update(portId, {
+                              position: { x, y },
+                            } as any);
+                            // 重新加载端口数据
+                            const updatedPorts = await portService.getByPanel(panel.id);
+                            setPanelPorts((prev) => ({
+                              ...prev,
+                              [panel.id]: updatedPorts,
+                            }));
+                            message.success('端口位置已更新');
+                          } catch (error) {
+                            console.error('Failed to update port position:', error);
+                            message.error('更新端口位置失败');
+                          }
+                        }}
+                        allowEdit={true}
+                      />
                     </TabPane>
                   );
                 })}

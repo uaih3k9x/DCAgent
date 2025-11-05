@@ -9,30 +9,40 @@ const createPanelSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   type: z.enum(['NETWORK', 'POWER', 'CONSOLE', 'USB', 'MIXED', 'OTHER']),
   deviceId: z.string().uuid('Invalid device ID'),
+  // 模板相关
+  templateId: z.string().uuid().optional(),
+  isCustomized: z.boolean().optional(),
   // 物理布局
   positionX: z.number().optional(),
   positionY: z.number().optional(),
-  width: z.number().optional(),
-  height: z.number().optional(),
+  size: z.object({
+    width: z.number(),
+    height: z.number(),
+  }).optional(),
   // 视觉样式
-  backgroundColor: z.string().optional(),
-  image: z.string().optional(),
-  svgPath: z.string().optional(),
+  backgroundColor: z.string().nullable().optional(),
+  image: z.string().nullable().optional(),
+  svgPath: z.string().nullable().optional(),
 });
 
 const updatePanelSchema = z.object({
   id: z.string().uuid('Invalid ID'),
   name: z.string().min(1).optional(),
   type: z.enum(['NETWORK', 'POWER', 'CONSOLE', 'USB', 'MIXED', 'OTHER']).optional(),
+  // 模板相关
+  templateId: z.string().uuid().nullable().optional(),
+  isCustomized: z.boolean().optional(),
   // 物理布局
   positionX: z.number().optional(),
   positionY: z.number().optional(),
-  width: z.number().optional(),
-  height: z.number().optional(),
+  size: z.object({
+    width: z.number(),
+    height: z.number(),
+  }).optional(),
   // 视觉样式
-  backgroundColor: z.string().optional(),
-  image: z.string().optional(),
-  svgPath: z.string().optional(),
+  backgroundColor: z.string().nullable().optional(),
+  image: z.string().nullable().optional(),
+  svgPath: z.string().nullable().optional(),
 });
 
 const idSchema = z.object({

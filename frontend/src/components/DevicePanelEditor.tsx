@@ -83,12 +83,17 @@ export const DevicePanelEditor: React.FC<DevicePanelEditorProps> = ({
       const hasTemplate = !!(panel.templateId && !panel.isCustomized);
       setUseTemplate(hasTemplate);
 
+      // 从 Panel 对象获取宽度和高度
+      // 兼容两种格式：panel.size 对象格式和扁平化的 panel.width/panel.height
+      const width = panel.size?.width || (panel as any).width || 482.6;
+      const height = panel.size?.height || (panel as any).height || 44.45;
+
       form.setFieldsValue({
         name: panel.name,
         type: panel.type,
-        width: panel.size?.width || 482.6,
-        height: panel.size?.height || 44.45,
-        backgroundColor: panel.backgroundColor,
+        width,
+        height,
+        backgroundColor: panel.backgroundColor || '#FFFFFF',
         templateId: panel.templateId,
         useTemplate: hasTemplate,
       });
@@ -109,6 +114,7 @@ export const DevicePanelEditor: React.FC<DevicePanelEditorProps> = ({
         type: PanelType.NETWORK,
         width: 482.6, // 标准1U面板宽度
         height: deviceHeight, // 根据设备U高度计算
+        backgroundColor: '#FFFFFF', // 默认白色背景
         useTemplate: false,
       });
     }
@@ -165,7 +171,8 @@ export const DevicePanelEditor: React.FC<DevicePanelEditorProps> = ({
           width: values.width ?? 482.6,
           height: values.height ?? 44.45,
         },
-        backgroundColor: values.backgroundColor,
+        // 背景颜色：使用用户输入的值，如果为空则使用默认白色
+        backgroundColor: values.backgroundColor || '#FFFFFF',
         // 如果使用模板，设置模板ID，否则清除模板
         templateId: values.useTemplate ? values.templateId : undefined,
         isCustomized: values.useTemplate ? false : true,
@@ -305,6 +312,7 @@ export const DevicePanelEditor: React.FC<DevicePanelEditorProps> = ({
               <Form.Item
                 name="backgroundColor"
                 label="背景颜色"
+                initialValue="#FFFFFF"
               >
                 <Input placeholder="#FFFFFF" />
               </Form.Item>

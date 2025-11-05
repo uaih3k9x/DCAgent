@@ -147,20 +147,22 @@ enum PortStatus {
 
 // 端口
 model Port {
-  id        String     @id @default(uuid())
-  number    String     // 端口编号
-  label     String?    // 端口标签
-  status    PortStatus @default(AVAILABLE)
+  id        String          @id @default(uuid())
+  number    String          // 端口编号
+  label     String?         // 端口标签
+  status    PortStatus      @default(AVAILABLE)
   panelId   String
-  panel     Panel      @relation(fields: [panelId], references: [id], onDelete: Cascade)
-  portType  String?    // 端口类型 (RJ45, SFP, SFP+, QSFP, 等)
+  panel     Panel           @relation(fields: [panelId], references: [id], onDelete: Cascade)
+  portType  String?         // 端口类型 (RJ45, SFP, SFP+, QSFP, 等)
   // 物理布局信息（相对于面板的坐标，单位：mm）
-  positionX Float?     // X坐标
-  positionY Float?     // Y坐标
-  width     Float?     // 宽度
-  height    Float?     // 高度
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  positionX Float?          // X坐标
+  positionY Float?          // Y坐标
+  width     Float?          // 宽度
+  height    Float?          // 高度
+  // 连接信息
+  cableEndpoints CableEndpoint[] // 该端口连接的线缆端点
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
 
   @@unique([panelId, number])
 }
@@ -201,6 +203,7 @@ model CableEndpoint {
   cableId   String
   cable     Cable    @relation(fields: [cableId], references: [id], onDelete: Cascade)
   portId    String
+  port      Port     @relation(fields: [portId], references: [id], onDelete: Cascade)
   endType   String   // "A" 表示主端（如QSFP端），"B1", "B2", "B3", "B4" 表示分支端（如4个SFP端）
   createdAt DateTime @default(now())
 
