@@ -7,7 +7,7 @@ const router = Router();
 // Validation schemas
 const createPanelSchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  type: z.enum(['ETHERNET', 'FIBER', 'POWER', 'SERIAL', 'USB', 'OTHER']),
+  type: z.enum(['NETWORK', 'POWER', 'CONSOLE', 'USB', 'MIXED', 'OTHER']),
   deviceId: z.string().uuid('Invalid device ID'),
   // 物理布局
   positionX: z.number().optional(),
@@ -23,7 +23,7 @@ const createPanelSchema = z.object({
 const updatePanelSchema = z.object({
   id: z.string().uuid('Invalid ID'),
   name: z.string().min(1).optional(),
-  type: z.enum(['ETHERNET', 'FIBER', 'POWER', 'SERIAL', 'USB', 'OTHER']).optional(),
+  type: z.enum(['NETWORK', 'POWER', 'CONSOLE', 'USB', 'MIXED', 'OTHER']).optional(),
   // 物理布局
   positionX: z.number().optional(),
   positionY: z.number().optional(),

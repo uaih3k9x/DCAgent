@@ -388,8 +388,12 @@ export default function CabinetList() {
   };
 
   // 打开设备面板编辑器
-  const handleOpenPanelEditor = (panel?: Panel) => {
+  const handleOpenPanelEditor = (panel?: Panel, device?: Device) => {
     setEditingPanel(panel || null);
+    // 如果传入了设备，设置当前查看的设备
+    if (device) {
+      setViewingDevice(device);
+    }
     setPanelEditorVisible(true);
   };
 
@@ -880,7 +884,7 @@ export default function CabinetList() {
                               type="link"
                               size="small"
                               icon={<SettingOutlined />}
-                              onClick={() => handleOpenPanelEditor()}
+                              onClick={() => handleOpenPanelEditor(undefined, device)}
                               key="panels"
                             >
                               面板
@@ -1213,16 +1217,18 @@ export default function CabinetList() {
       </Modal>
 
       {/* 设备面板编辑器 */}
-      <DevicePanelEditor
-        visible={panelEditorVisible}
-        onCancel={() => {
-          setPanelEditorVisible(false);
-          setEditingPanel(null);
-        }}
-        onSave={handleSavePanel}
-        device={viewingDevice!}
-        panel={editingPanel || undefined}
-      />
+      {viewingDevice && (
+        <DevicePanelEditor
+          visible={panelEditorVisible}
+          onCancel={() => {
+            setPanelEditorVisible(false);
+            setEditingPanel(null);
+          }}
+          onSave={handleSavePanel}
+          device={viewingDevice}
+          panel={editingPanel || undefined}
+        />
+      )}
 
       {/* 设备发送对话框 */}
       <Modal

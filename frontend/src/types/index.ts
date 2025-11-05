@@ -56,11 +56,11 @@ export interface Device {
 }
 
 export enum PanelType {
-  ETHERNET = 'ETHERNET',
-  FIBER = 'FIBER',
+  NETWORK = 'NETWORK',
   POWER = 'POWER',
-  SERIAL = 'SERIAL',
+  CONSOLE = 'CONSOLE',
   USB = 'USB',
+  MIXED = 'MIXED',
   OTHER = 'OTHER',
 }
 

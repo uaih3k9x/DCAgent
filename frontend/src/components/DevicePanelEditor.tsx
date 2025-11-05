@@ -10,7 +10,6 @@ import {
   Switch,
   Alert,
   Descriptions,
-  Tabs,
   Row,
   Col,
   Card,
@@ -21,14 +20,12 @@ import {
 import {
   EditOutlined,
   SaveOutlined,
-  UndoOutlined,
   InfoCircleOutlined,
 } from '@ant-design/icons';
-import { Panel, PanelPosition, PanelType, PanelTemplate, Device } from '@/types';
+import { Panel, PanelType, PanelTemplate, Device, DeviceType } from '@/types';
 import { panelTemplateService } from '@/services/panelTemplateService';
 
 const { Option } = Select;
-const { TabPane } = Tabs;
 
 interface DevicePanelEditorProps {
   visible: boolean;
@@ -41,7 +38,6 @@ interface DevicePanelEditorProps {
 interface FormValues {
   name: string;
   type: PanelType;
-  panelPosition?: PanelPosition;
   width?: number;
   height?: number;
   backgroundColor?: string;
@@ -84,13 +80,12 @@ export const DevicePanelEditor: React.FC<DevicePanelEditorProps> = ({
   const resetForm = () => {
     if (panel) {
       // 编辑模式
-      const hasTemplate = panel.templateId && !panel.isCustomized;
+      const hasTemplate = !!(panel.templateId && !panel.isCustomized);
       setUseTemplate(hasTemplate);
 
       form.setFieldsValue({
         name: panel.name,
         type: panel.type,
-        panelPosition: panel.panelPosition || PanelPosition.FRONT,
         width: panel.size?.width || 482.6,
         height: panel.size?.height || 44.45,
         backgroundColor: panel.backgroundColor,
@@ -106,12 +101,14 @@ export const DevicePanelEditor: React.FC<DevicePanelEditorProps> = ({
       // 新建模式
       setUseTemplate(false);
       setSelectedTemplate(null);
+      // 根据设备U高度计算面板高度
+      const deviceHeight = (device.uHeight || 1) * 44.45;
+
       form.setFieldsValue({
         name: '',
         type: PanelType.NETWORK,
-        panelPosition: PanelPosition.FRONT,
         width: 482.6, // 标准1U面板宽度
-        height: 44.45, // 标准1U面板高度
+        height: deviceHeight, // 根据设备U高度计算
         useTemplate: false,
       });
     }
@@ -150,17 +147,7 @@ export const DevicePanelEditor: React.FC<DevicePanelEditorProps> = ({
     }
   };
 
-  const handlePanelPositionChange = (position: PanelPosition) => {
-    if (position === PanelPosition.FRONT || position === PanelPosition.REAR) {
-      // 前后面板自动设置为标准机架宽度
-      form.setFieldsValue({ width: 482.6 });
-    } else {
-      // 自定义位置允许修改宽度
-      form.setFieldsValue({ width: 482.6 });
-    }
-    updatePreviewSize();
-  };
-
+  
   const handleSizeChange = () => {
     updatePreviewSize();
   };
@@ -173,11 +160,10 @@ export const DevicePanelEditor: React.FC<DevicePanelEditorProps> = ({
       const panelData: Partial<Panel> = {
         name: values.name,
         type: values.type,
-        panelPosition: values.panelPosition,
         deviceId: device.id,
         size: {
-          width: values.width,
-          height: values.height,
+          width: values.width ?? 482.6,
+          height: values.height ?? 44.45,
         },
         backgroundColor: values.backgroundColor,
         // 如果使用模板，设置模板ID，否则清除模板
@@ -199,20 +185,7 @@ export const DevicePanelEditor: React.FC<DevicePanelEditorProps> = ({
     }
   };
 
-  const getPositionLabel = (position?: PanelPosition) => {
-    switch (position) {
-      case PanelPosition.FRONT:
-        return '前面板';
-      case PanelPosition.REAR:
-        return '后面板';
-      case PanelPosition.CUSTOM:
-        return '自定义';
-      default:
-        return '前面板';
-    }
-  };
-
-  const getTypeLabel = (type: PanelType) => {
+  const getPanelTypeLabel = (type: PanelType) => {
     switch (type) {
       case PanelType.NETWORK:
         return '网络面板';
@@ -225,6 +198,27 @@ export const DevicePanelEditor: React.FC<DevicePanelEditorProps> = ({
       case PanelType.MIXED:
         return '混合面板';
       case PanelType.OTHER:
+        return '其他';
+      default:
+        return type;
+    }
+  };
+
+  const getDeviceTypeLabel = (type: DeviceType) => {
+    switch (type) {
+      case DeviceType.SERVER:
+        return '服务器';
+      case DeviceType.SWITCH:
+        return '交换机';
+      case DeviceType.ROUTER:
+        return '路由器';
+      case DeviceType.FIREWALL:
+        return '防火墙';
+      case DeviceType.STORAGE:
+        return '存储设备';
+      case DeviceType.PDU:
+        return 'PDU';
+      case DeviceType.OTHER:
         return '其他';
       default:
         return type;
@@ -265,7 +259,7 @@ export const DevicePanelEditor: React.FC<DevicePanelEditorProps> = ({
         <Card size="small" style={{ marginBottom: 16 }}>
           <Descriptions column={2} size="small">
             <Descriptions.Item label="设备名称">{device.name}</Descriptions.Item>
-            <Descriptions.Item label="设备类型">{getTypeLabel(device.type)}</Descriptions.Item>
+            <Descriptions.Item label="设备类型">{getDeviceTypeLabel(device.type)}</Descriptions.Item>
             <Descriptions.Item label="型号">{device.model || '-'}</Descriptions.Item>
             <Descriptions.Item label="U位">
               U{device.uPosition} (高{device.uHeight}U)
@@ -307,23 +301,7 @@ export const DevicePanelEditor: React.FC<DevicePanelEditorProps> = ({
           </Row>
 
           <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="panelPosition"
-                label="面板位置"
-                rules={[{ required: true, message: '请选择面板位置' }]}
-              >
-                <Select
-                  placeholder="选择面板位置"
-                  onChange={handlePanelPositionChange}
-                >
-                  <Option value={PanelPosition.FRONT}>前面板</Option>
-                  <Option value={PanelPosition.REAR}>后面板</Option>
-                  <Option value={PanelPosition.CUSTOM}>自定义位置</Option>
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={12}>
+            <Col span={24}>
               <Form.Item
                 name="backgroundColor"
                 label="背景颜色"
@@ -349,14 +327,13 @@ export const DevicePanelEditor: React.FC<DevicePanelEditorProps> = ({
                   style={{ width: '100%' }}
                   placeholder="482.6"
                   step={0.1}
-                  disabled={form.getFieldValue('panelPosition') !== PanelPosition.CUSTOM}
                 />
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item
                 name="height"
-                label="高度 (mm)"
+                label={`高度 (mm) - 设备: ${device.uHeight || 1}U`}
                 rules={[
                   { required: true, message: '请输入高度' },
                   { type: 'number', min: 1, message: '高度必须大于0' }
@@ -364,22 +341,26 @@ export const DevicePanelEditor: React.FC<DevicePanelEditorProps> = ({
               >
                 <InputNumber
                   style={{ width: '100%' }}
-                  placeholder="44.45"
+                  placeholder={`${(device.uHeight || 1) * 44.45}`}
                   step={0.1}
                 />
               </Form.Item>
             </Col>
           </Row>
 
-          {form.getFieldValue('panelPosition') !== PanelPosition.CUSTOM && (
-            <Alert
-              message="前面板/后面板使用标准机架宽度"
-              description="前面板和后面板使用标准19英寸机架宽度 (482.6mm)，只有自定义位置可以修改宽度。"
-              type="info"
-              showIcon
-              style={{ marginBottom: 16 }}
-            />
-          )}
+          <Alert
+            message="尺寸说明"
+            description={
+              <div>
+                <p>• 宽度: 标准19英寸机架宽度为 482.6mm</p>
+                <p>• 高度: 根据设备U数自动计算 (1U = 44.45mm)</p>
+                <p>• 当前设备: {device.uHeight || 1}U = {(device.uHeight || 1) * 44.45}mm</p>
+              </div>
+            }
+            type="info"
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
 
           <Divider>模板设置</Divider>
 
@@ -403,7 +384,7 @@ export const DevicePanelEditor: React.FC<DevicePanelEditorProps> = ({
                     <Space>
                       <span>{template.name}</span>
                       <span style={{ color: '#8c8c8c', fontSize: 12 }}>
-                        ({template.portCount}口, {getTypeLabel(template.type)})
+                        ({template.portCount}口, {getPanelTypeLabel(template.type)})
                       </span>
                     </Space>
                   </Option>
@@ -419,7 +400,7 @@ export const DevicePanelEditor: React.FC<DevicePanelEditorProps> = ({
                 <div>
                   <p>模板: {selectedTemplate.name}</p>
                   <p>端口数量: {selectedTemplate.portCount}</p>
-                  <p>模板类型: {getTypeLabel(selectedTemplate.type)}</p>
+                  <p>模板类型: {getPanelTypeLabel(selectedTemplate.type)}</p>
                   <p>描述: {selectedTemplate.description || '无'}</p>
                 </div>
               }
