@@ -11,12 +11,12 @@ const createCableSchema = z.object({
   length: z.number().positive().optional(),
   color: z.string().optional(),
   notes: z.string().optional(),
-  portAId: z.string().cuid('Invalid port A ID'),
-  portBId: z.string().cuid('Invalid port B ID'),
+  portAId: z.string().uuid('Invalid port A ID'),
+  portBId: z.string().uuid('Invalid port B ID'),
 });
 
 const updateCableSchema = z.object({
-  id: z.string().cuid('Invalid ID'),
+  id: z.string().uuid('Invalid ID'),
   label: z.string().optional(),
   type: z.enum(['CAT5E', 'CAT6', 'CAT6A', 'CAT7', 'FIBER_SM', 'FIBER_MM', 'POWER', 'OTHER']).optional(),
   length: z.number().positive().optional(),
@@ -25,15 +25,15 @@ const updateCableSchema = z.object({
 });
 
 const idSchema = z.object({
-  id: z.string().cuid('Invalid ID'),
+  id: z.string().uuid('Invalid ID'),
 });
 
 const portIdSchema = z.object({
-  portId: z.string().cuid('Invalid port ID'),
+  portId: z.string().uuid('Invalid port ID'),
 });
 
 const panelIdSchema = z.object({
-  panelId: z.string().cuid('Invalid panel ID'),
+  panelId: z.string().uuid('Invalid panel ID'),
   depth: z.number().int().positive().optional(),
 });
 

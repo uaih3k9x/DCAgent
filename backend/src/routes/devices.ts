@@ -12,11 +12,11 @@ const createDeviceSchema = z.object({
   serialNo: z.string().optional(),
   uPosition: z.number().int().positive().optional(),
   uHeight: z.number().int().positive().optional(),
-  cabinetId: z.string().cuid('Invalid cabinet ID'),
+  cabinetId: z.string().uuid('Invalid cabinet ID'),
 });
 
 const updateDeviceSchema = z.object({
-  id: z.string().cuid('Invalid ID'),
+  id: z.string().uuid('Invalid ID'),
   name: z.string().min(1).optional(),
   type: z.enum(['SERVER', 'SWITCH', 'ROUTER', 'FIREWALL', 'STORAGE', 'PDU', 'OTHER']).optional(),
   model: z.string().optional(),
@@ -26,7 +26,7 @@ const updateDeviceSchema = z.object({
 });
 
 const idSchema = z.object({
-  id: z.string().cuid('Invalid ID'),
+  id: z.string().uuid('Invalid ID'),
 });
 
 const shortIdSchema = z.object({

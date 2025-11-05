@@ -8,17 +8,17 @@ const router = Router();
 const createRoomSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   floor: z.string().optional(),
-  dataCenterId: z.string().cuid('Invalid datacenter ID'),
+  dataCenterId: z.string().uuid('Invalid datacenter ID'),
 });
 
 const updateRoomSchema = z.object({
-  id: z.string().cuid('Invalid ID'),
+  id: z.string().uuid('Invalid ID'),
   name: z.string().min(1).optional(),
   floor: z.string().optional(),
 });
 
 const idSchema = z.object({
-  id: z.string().cuid('Invalid ID'),
+  id: z.string().uuid('Invalid ID'),
 });
 
 const shortIdSchema = z.object({

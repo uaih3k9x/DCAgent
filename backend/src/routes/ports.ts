@@ -9,7 +9,7 @@ const createPortSchema = z.object({
   number: z.string().min(1, 'Number is required'),
   label: z.string().optional(),
   status: z.enum(['AVAILABLE', 'OCCUPIED', 'RESERVED', 'FAULTY']).optional(),
-  panelId: z.string().cuid('Invalid panel ID'),
+  panelId: z.string().uuid('Invalid panel ID'),
   // 物理布局（相对于面板的坐标）
   positionX: z.number().optional(),
   positionY: z.number().optional(),
@@ -18,13 +18,13 @@ const createPortSchema = z.object({
 });
 
 const createBulkPortsSchema = z.object({
-  panelId: z.string().cuid('Invalid panel ID'),
+  panelId: z.string().uuid('Invalid panel ID'),
   count: z.number().int().positive('Count must be positive'),
   prefix: z.string().optional(),
 });
 
 const updatePortSchema = z.object({
-  id: z.string().cuid('Invalid ID'),
+  id: z.string().uuid('Invalid ID'),
   number: z.string().min(1).optional(),
   label: z.string().optional(),
   status: z.enum(['AVAILABLE', 'OCCUPIED', 'RESERVED', 'FAULTY']).optional(),
@@ -36,12 +36,12 @@ const updatePortSchema = z.object({
 });
 
 const updatePortStatusSchema = z.object({
-  id: z.string().cuid('Invalid ID'),
+  id: z.string().uuid('Invalid ID'),
   status: z.enum(['AVAILABLE', 'OCCUPIED', 'RESERVED', 'FAULTY']),
 });
 
 const idSchema = z.object({
-  id: z.string().cuid('Invalid ID'),
+  id: z.string().uuid('Invalid ID'),
 });
 
 // GET /api/v1/ports - 获取列表
@@ -169,7 +169,7 @@ router.post('/delete', async (req: Request, res: Response) => {
 router.post('/available', async (req: Request, res: Response) => {
   try {
     const panelIdSchema = z.object({
-      panelId: z.string().cuid('Invalid panel ID'),
+      panelId: z.string().uuid('Invalid panel ID'),
     });
     const { panelId } = panelIdSchema.parse(req.body);
     const ports = await portService.getAvailablePortsByPanel(panelId);

@@ -9,18 +9,18 @@ const createCabinetSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   position: z.string().optional(),
   height: z.number().int().positive().default(42),
-  roomId: z.string().cuid('Invalid room ID'),
+  roomId: z.string().uuid('Invalid room ID'),
 });
 
 const updateCabinetSchema = z.object({
-  id: z.string().cuid('Invalid ID'),
+  id: z.string().uuid('Invalid ID'),
   name: z.string().min(1).optional(),
   position: z.string().optional(),
   height: z.number().int().positive().optional(),
 });
 
 const idSchema = z.object({
-  id: z.string().cuid('Invalid ID'),
+  id: z.string().uuid('Invalid ID'),
 });
 
 const shortIdSchema = z.object({

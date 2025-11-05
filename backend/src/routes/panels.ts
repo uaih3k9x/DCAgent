@@ -8,7 +8,7 @@ const router = Router();
 const createPanelSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   type: z.enum(['ETHERNET', 'FIBER', 'POWER', 'SERIAL', 'USB', 'OTHER']),
-  deviceId: z.string().cuid('Invalid device ID'),
+  deviceId: z.string().uuid('Invalid device ID'),
   // 物理布局
   positionX: z.number().optional(),
   positionY: z.number().optional(),
@@ -21,7 +21,7 @@ const createPanelSchema = z.object({
 });
 
 const updatePanelSchema = z.object({
-  id: z.string().cuid('Invalid ID'),
+  id: z.string().uuid('Invalid ID'),
   name: z.string().min(1).optional(),
   type: z.enum(['ETHERNET', 'FIBER', 'POWER', 'SERIAL', 'USB', 'OTHER']).optional(),
   // 物理布局
@@ -36,7 +36,7 @@ const updatePanelSchema = z.object({
 });
 
 const idSchema = z.object({
-  id: z.string().cuid('Invalid ID'),
+  id: z.string().uuid('Invalid ID'),
 });
 
 // GET /api/v1/panels - 获取列表

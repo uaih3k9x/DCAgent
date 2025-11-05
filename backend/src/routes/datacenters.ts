@@ -11,13 +11,13 @@ const createDataCenterSchema = z.object({
 });
 
 const updateDataCenterSchema = z.object({
-  id: z.string().cuid('Invalid ID'),
+  id: z.string().uuid('Invalid ID'),
   name: z.string().min(1).optional(),
   location: z.string().optional(),
 });
 
 const idSchema = z.object({
-  id: z.string().cuid('Invalid ID'),
+  id: z.string().uuid('Invalid ID'),
 });
 
 const shortIdSchema = z.object({
