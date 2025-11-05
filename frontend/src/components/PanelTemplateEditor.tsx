@@ -30,6 +30,7 @@ import {
 } from '@ant-design/icons';
 import { PanelType } from '@/types';
 import {  PortType, getPortSize, PORT_TYPE_OPTIONS } from '@/constants/portSizes';
+import { PortIcon } from './PortIcon';
 
 interface PortDefinition {
   number: string;
@@ -334,6 +335,17 @@ export default function PanelTemplateEditor({
     });
   };
 
+  // 端口类型选项（带图标）
+  const portTypeOptionsWithIcons = PORT_TYPE_OPTIONS.map((option) => ({
+    ...option,
+    label: (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <PortIcon portType={option.value} size={20} />
+        <span>{option.label}</span>
+      </div>
+    ),
+  }));
+
   // 确认添加端口
   const handleConfirmAddPort = () => {
     addPortForm.validateFields().then((values) => {
@@ -461,7 +473,7 @@ export default function PanelTemplateEditor({
               rules={[{ required: true, message: '请选择端口类型' }]}
             >
               <Select
-                options={PORT_TYPE_OPTIONS}
+                options={portTypeOptionsWithIcons}
                 placeholder="选择端口类型"
               />
             </Form.Item>
@@ -620,8 +632,10 @@ export default function PanelTemplateEditor({
                   <Tag
                     key={portType}
                     color={portSize.color}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 8px' }}
                   >
-                    {portSize.label} - {portSize.width}×{portSize.height}mm
+                    <PortIcon portType={portType as PortType} size={16} />
+                    <span>{portSize.label} - {portSize.width}×{portSize.height}mm</span>
                   </Tag>
                 );
               })}
