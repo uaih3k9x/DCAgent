@@ -7,6 +7,7 @@ import {
   ApartmentOutlined,
   CloudUploadOutlined,
   FileTextOutlined,
+  MonitorOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -72,6 +73,11 @@ export default function AppSidebar() {
           label: '线缆拓扑',
         },
       ],
+    },
+    {
+      key: '/monitoring',
+      icon: <MonitorOutlined />,
+      label: '设备监控',
     },
     {
       key: '/bulk-deployment',
