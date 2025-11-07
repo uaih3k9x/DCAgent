@@ -9,6 +9,7 @@ import {
   navigateToCableEndpoint,
   getSearchResultKey,
 } from '../../utils/navigationHelper';
+import { ShortIdFormatter } from '../../utils/shortIdFormatter';
 
 const { Header } = Layout;
 const { Title } = Typography;
@@ -28,10 +29,13 @@ export default function AppHeader() {
       return;
     }
 
-    // 检查是否是纯数字（shortId）
-    const numericValue = parseInt(value, 10);
-    if (!isNaN(numericValue) && numericValue.toString() === value.trim()) {
-      // 尝试根据 shortId 查找
+    const trimmedValue = value.trim();
+
+    // 尝试解析为 shortId（支持 E-00003 或 3 格式）
+    try {
+      const numericValue = ShortIdFormatter.toNumericFormat(trimmedValue);
+
+      // 如果成功解析为数字，尝试根据 shortId 查找
       setSearching(true);
       try {
         const result = await searchService.findByShortId(numericValue);
@@ -43,34 +47,34 @@ export default function AppHeader() {
               data: result,
             },
           ]);
-        } else {
-          setSearchOptions([]);
+          return;
         }
       } catch (error) {
         console.error('Error finding by shortId:', error);
-        setSearchOptions([]);
       } finally {
         setSearching(false);
       }
-    } else {
-      // 全局文本搜索
-      setSearching(true);
-      try {
-        const results = await searchService.globalSearch(value);
-        setSearchOptions(
-          results.map((result) => ({
-            value: getSearchResultKey(result),
-            label: formatSearchResultLabel(result),
-            data: result,
-          }))
-        );
-      } catch (error) {
-        console.error('Error in global search:', error);
-        message.error('搜索失败，请稍后重试');
-        setSearchOptions([]);
-      } finally {
-        setSearching(false);
-      }
+    } catch {
+      // 不是有效的 shortId 格式，继续进行文本搜索
+    }
+
+    // 全局文本搜索
+    setSearching(true);
+    try {
+      const results = await searchService.globalSearch(trimmedValue);
+      setSearchOptions(
+        results.map((result) => ({
+          value: getSearchResultKey(result),
+          label: formatSearchResultLabel(result),
+          data: result,
+        }))
+      );
+    } catch (error) {
+      console.error('Error in global search:', error);
+      message.error('搜索失败，请稍后重试');
+      setSearchOptions([]);
+    } finally {
+      setSearching(false);
     }
   }, []);
 
@@ -87,8 +91,12 @@ export default function AppHeader() {
         try {
           const endpoints = await searchService.getCableEndpointsByShortId(result.shortId);
           if (endpoints) {
-            navigateToCableEndpoint(endpoints, navigate);
-            message.success(`跳转到线缆连接端口: ${endpoints.portA?.label || endpoints.portA?.number}`);
+            // 根据搜索结果的端点类型，决定聚焦哪一端
+            const scannedEndType = result.metadata?.endType as 'A' | 'B' | undefined;
+            navigateToCableEndpoint(endpoints, navigate, scannedEndType);
+
+            const targetPort = scannedEndType === 'A' ? endpoints.portA : endpoints.portB;
+            message.success(`跳转到线缆端点${scannedEndType || 'A'}: ${targetPort?.label || targetPort?.number}`);
           } else {
             message.warning('未找到线缆连接信息');
           }
@@ -108,6 +116,13 @@ export default function AppHeader() {
     },
     [searchOptions, navigate]
   );
+
+  // 处理回车键 - 自动选择第一个候选项
+  const handlePressEnter = useCallback(() => {
+    if (searchOptions.length > 0) {
+      handleSelect(searchOptions[0].value);
+    }
+  }, [searchOptions, handleSelect]);
 
   return (
     <Header
@@ -141,6 +156,7 @@ export default function AppHeader() {
             suffix={<BarcodeOutlined style={{ color: '#8c8c8c' }} />}
             loading={searching}
             allowClear
+            onPressEnter={handlePressEnter}
           />
         </AutoComplete>
       </div>

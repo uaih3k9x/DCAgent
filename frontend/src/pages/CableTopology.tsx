@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Typography,
   Card,
@@ -231,6 +232,7 @@ const nodeTypes = {
 
 // 拓扑图主组件
 function CableTopologyContent() {
+  const location = useLocation();
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [loading, setLoading] = useState(false);
@@ -251,11 +253,49 @@ function CableTopologyContent() {
   const [highlightedEdgeIds, setHighlightedEdgeIds] = useState<string[]>([]);
   const [highlightedNodeIds, setHighlightedNodeIds] = useState<string[]>([]);
   const [scanInput, setScanInput] = useState('');
-  const [clickTimer, setClickTimer] = useState<NodeJS.Timeout | null>(null);
+  const [clickTimer, setClickTimer] = useState<number | null>(null);
   const [cableDetailModalVisible, setCableDetailModalVisible] = useState(false);
   const [selectedCableEdge, setSelectedCableEdge] = useState<any>(null);
 
   const { fitView, zoomIn, zoomOut } = useReactFlow();
+
+  // 处理初始高亮（从路由状态）
+  useEffect(() => {
+    const state = location.state as any;
+    if (state?.highlightCable && state?.focusPanel) {
+      // 首先加载拓扑图
+      loadTopology(state.focusPanel, depth);
+
+      // 延迟设置高亮，确保图已经加载完成
+      setTimeout(() => {
+        // 找到对应的边（线缆）
+        const cableEdge = edges.find(e => e.data?.cable?.id === state.highlightCable);
+        if (cableEdge) {
+          setHighlightedEdgeIds([cableEdge.id]);
+        }
+
+        // 高亮相关的面板节点
+        if (state.highlightPanels) {
+          setHighlightedNodeIds(state.highlightPanels.filter(Boolean));
+        }
+
+        // 聚焦到指定面板
+        const focusNode = nodes.find(n => n.id === state.focusPanel);
+        if (focusNode) {
+          fitView({
+            nodes: [focusNode],
+            duration: 800,
+            padding: 0.3,
+          });
+        }
+
+        // 显示线缆信息提示
+        if (state.cableInfo) {
+          message.success(`已定位到线缆: ${state.cableInfo.label || state.cableInfo.type}`);
+        }
+      }, 1000); // 增加延迟以等待拓扑加载完成
+    }
+  }, [location.state]);
 
   // 根据高亮状态动态生成边和节点样式
   const styledEdges = edges.map(edge => ({

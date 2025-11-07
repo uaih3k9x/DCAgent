@@ -10,7 +10,8 @@ export type EntityType =
   | 'Room'
   | 'Cabinet'
   | 'Panel'
-  | 'Port';
+  | 'Port'
+  | 'CableEndpoint';
 
 class GlobalShortIdService {
   /**

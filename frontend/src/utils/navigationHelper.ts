@@ -106,7 +106,10 @@ export function navigateToEntity(
 
 /**
  * 处理线缆扫码跳转
- * 扫描线缆插头后，跳转到端口所在的面板可视化页面并高亮端口
+ * 扫描线缆插头后，跳转到拓扑图并高亮显示该线缆
+ * @param endpoints 线缆端点信息（包含 portA 和 portB）
+ * @param navigate 导航函数
+ * @param preferredEnd 扫描的端点类型（'A' 或 'B'），如果提供则聚焦到对应端点
  */
 export function navigateToCableEndpoint(
   endpoints: any,
@@ -117,10 +120,14 @@ export function navigateToCableEndpoint(
     return null;
   }
 
-  // 优先选择 portA 或根据 preferredEnd 参数选择
-  const targetPort = preferredEnd === 'B' && endpoints.portB
-    ? endpoints.portB
-    : endpoints.portA || endpoints.portB;
+  // 根据 preferredEnd 参数选择聚焦的端点
+  // 如果扫描的是端点A，就聚焦到端点A连接的面板
+  // 如果扫描的是端点B，就聚焦到端点B连接的面板
+  const targetPort = preferredEnd === 'B'
+    ? endpoints.portB || endpoints.portA
+    : preferredEnd === 'A'
+      ? endpoints.portA || endpoints.portB
+      : endpoints.portA || endpoints.portB; // 默认优先A端
 
   if (!targetPort) {
     console.warn('No valid port endpoint found for cable');
@@ -133,12 +140,17 @@ export function navigateToCableEndpoint(
     return null;
   }
 
-  // 跳转到端口管理页的可视化tab，并高亮显示该端口
-  navigate('/ports', {
+  // 收集需要高亮的信息
+  const panelIdA = endpoints.portA?.panel?.id;
+  const panelIdB = endpoints.portB?.panel?.id;
+  const highlightPanels = [panelIdA, panelIdB].filter(Boolean);
+
+  // 跳转到拓扑图页面，高亮显示线缆
+  navigate('/topology', {
     state: {
-      activeTab: 'visual',
-      selectedPanelId: panelId,
-      highlightPortId: targetPort.id,
+      highlightCable: endpoints.cable?.id, // 高亮的线缆ID
+      highlightPanels, // 高亮的面板节点
+      focusPanel: panelId, // 聚焦的面板（用于居中视图和加载拓扑）
       cableInfo: endpoints.cable, // 传递线缆信息用于显示
     },
   });

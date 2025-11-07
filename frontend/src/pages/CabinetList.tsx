@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import './CabinetList.css';
 import {
   Card,
@@ -83,6 +83,7 @@ const deviceTypeMap: Record<DeviceType, { label: string; color: string }> = {
 
 export default function CabinetList() {
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const [cabinets, setCabinets] = useState<Cabinet[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [dataCenters, setDataCenters] = useState<DataCenter[]>([]);
@@ -100,7 +101,11 @@ export default function CabinetList() {
   const [panelPorts, setPanelPorts] = useState<Map<string, Port[]>>(new Map());
   const [selectedRoom, setSelectedRoom] = useState<string>();
   const [selectedCabinet, setSelectedCabinet] = useState<Cabinet | null>(null);
-  const [activeTab, setActiveTab] = useState('list');
+  // 从路由 state 中读取初始 activeTab，默认为 'list'
+  const [activeTab, setActiveTab] = useState(() => {
+    const state = location.state as any;
+    return state?.activeTab || 'list';
+  });
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const saved = localStorage.getItem('cabinet-view-mode');
     return (saved === '3d' ? '3d' : '2d') as ViewMode;
@@ -110,7 +115,11 @@ export default function CabinetList() {
   const [deviceTransferVisible, setDeviceTransferVisible] = useState(false);
   const [deviceCopyVisible, setDeviceCopyVisible] = useState(false);
   const [selectedDeviceForAction, setSelectedDeviceForAction] = useState<Device | null>(null);
-  const [highlightedCabinetId, setHighlightedCabinetId] = useState<string | null>(null);
+  // 从路由 state 中读取需要高亮的机柜 ID
+  const [highlightedCabinetId, setHighlightedCabinetId] = useState<string | null>(() => {
+    const state = location.state as any;
+    return state?.selectedId || null;
+  });
 
   // 加载所有相关数据
   const loadAllData = async () => {
@@ -185,6 +194,22 @@ export default function CabinetList() {
       }
     }
   }, [searchParams, cabinets]);
+
+  // 处理从路由 state 传入的 selectedId（搜索跳转）
+  useEffect(() => {
+    const state = location.state as any;
+    if (state?.selectedId && cabinets.length > 0) {
+      const cabinet = cabinets.find((c) => c.id === state.selectedId);
+      if (cabinet) {
+        setSelectedCabinet(cabinet);
+
+        // 3秒后取消高亮
+        setTimeout(() => {
+          setHighlightedCabinetId(null);
+        }, 3000);
+      }
+    }
+  }, [location.state, cabinets]);
 
   // 构建级联选择器选项
   const getCascaderOptions = (): CascaderOption[] => {

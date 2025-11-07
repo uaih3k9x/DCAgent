@@ -198,7 +198,7 @@ class SearchService {
           return {
             type: 'Panel',
             id: panel.id,
-            shortId: panel.shortId,
+            shortId: panel.shortId ?? undefined,
             name: panel.name,
             description: panel.type,
             metadata: panel,
@@ -217,6 +217,51 @@ class SearchService {
             name: `Port ${port.number}`,
             description: `${port.portType || 'Unknown'} - ${port.status}`,
             metadata: port,
+          };
+        }
+
+        case 'CableEndpoint': {
+          const endpoint = await prisma.cableEndpoint.findUnique({
+            where: { id: entityId },
+            include: {
+              cable: true,
+              port: {
+                include: {
+                  panel: {
+                    include: {
+                      device: {
+                        include: {
+                          cabinet: {
+                            include: {
+                              room: {
+                                include: {
+                                  dataCenter: true,
+                                },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          });
+          if (!endpoint) return null;
+          return {
+            type: 'Cable',
+            id: endpoint.cable.id,
+            shortId: endpoint.shortId ?? undefined,
+            name: `Cable ${endpoint.cable.label || endpoint.cable.type}`,
+            description: `Endpoint ${endpoint.endType} - ${endpoint.cable.type}`,
+            metadata: {
+              ...endpoint.cable,
+              endpointId: endpoint.id,
+              endpointShortId: endpoint.shortId,
+              endType: endpoint.endType,
+              port: endpoint.port,
+            },
           };
         }
 
