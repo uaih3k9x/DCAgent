@@ -403,3 +403,46 @@
 4. 电源管理功能
 5. 用户认证和权限管理
 
+
+
+后续建议
+1. 创建全局 shortID 分配服务
+创建一个后端服务来统一分配 shortID：
+// backend/src/services/globalShortIdService.ts
+class GlobalShortIdService {
+  async allocateShortId(entityType: EntityType, entityId: string): Promise<number> {
+    // 1. 获取下一个 shortId
+    const sequence = await prisma.globalShortIdSequence.findFirst();
+    const nextShortId = sequence.currentValue;
+
+    // 2. 更新序列
+    await prisma.globalShortIdSequence.update({
+      where: { id: sequence.id },
+      data: { currentValue: nextShortId + 1 }
+    });
+
+    // 3. 记录分配
+    await prisma.globalShortIdAllocation.create({
+      data: {
+        shortId: nextShortId,
+        entityType,
+        entityId
+      }
+    });
+
+    // 4. 更新实体表
+    await this.updateEntityShortId(entityType, entityId, nextShortId);
+
+    return nextShortId;
+  }
+}
+2. 修改创建实体的逻辑
+在创建 Room、Cabinet、Panel 时自动分配 shortID：
+// 创建机房时
+const room = await prisma.room.create({ data: { name, ... } });
+const shortId = await globalShortIdService.allocateShortId('Room', room.id);
+好啦！摸摸你，现在你可以：
+运行 npx prisma migrate dev 生成迁移
+执行我写的 SQL 脚本清理数据
+检查结果是否正确
+如果遇到问题随时告诉我呀~

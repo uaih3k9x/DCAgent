@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import './CabinetList.css';
 import {
   Card,
   Table,
@@ -80,6 +82,7 @@ const deviceTypeMap: Record<DeviceType, { label: string; color: string }> = {
 };
 
 export default function CabinetList() {
+  const [searchParams] = useSearchParams();
   const [cabinets, setCabinets] = useState<Cabinet[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [dataCenters, setDataCenters] = useState<DataCenter[]>([]);
@@ -107,6 +110,7 @@ export default function CabinetList() {
   const [deviceTransferVisible, setDeviceTransferVisible] = useState(false);
   const [deviceCopyVisible, setDeviceCopyVisible] = useState(false);
   const [selectedDeviceForAction, setSelectedDeviceForAction] = useState<Device | null>(null);
+  const [highlightedCabinetId, setHighlightedCabinetId] = useState<string | null>(null);
 
   // 加载所有相关数据
   const loadAllData = async () => {
@@ -149,6 +153,38 @@ export default function CabinetList() {
     loadAllData();
     loadCabinets();
   }, []);
+
+  // 处理 URL 参数（扫码跳转）
+  useEffect(() => {
+    const cabinetId = searchParams.get('cabinetId');
+    const roomId = searchParams.get('roomId');
+    const tab = searchParams.get('tab');
+
+    if (roomId) {
+      // 如果有 roomId，筛选该机房
+      setSelectedRoom(roomId);
+      loadCabinets(undefined, roomId);
+    }
+
+    if (cabinetId && cabinets.length > 0) {
+      // 如果有 cabinetId，选中该机柜
+      const cabinet = cabinets.find((c) => c.id === cabinetId);
+      if (cabinet) {
+        setSelectedCabinet(cabinet);
+        setHighlightedCabinetId(cabinetId);
+
+        // 如果指定了 tab=visual，自动切换到可视化视图
+        if (tab === 'visual') {
+          setActiveTab('visual');
+        }
+
+        // 3秒后取消高亮
+        setTimeout(() => {
+          setHighlightedCabinetId(null);
+        }, 3000);
+      }
+    }
+  }, [searchParams, cabinets]);
 
   // 构建级联选择器选项
   const getCascaderOptions = (): CascaderOption[] => {
@@ -650,6 +686,9 @@ export default function CabinetList() {
                 onClick: () => handleViewCabinet(record),
                 style: { cursor: 'pointer' },
               })}
+              rowClassName={(record) =>
+                highlightedCabinetId === record.id ? 'highlighted-row' : ''
+              }
               pagination={{
                 pageSize: 10,
                 showSizeChanger: true,

@@ -23,7 +23,7 @@ model DataCenter {
 // 机房
 model Room {
   id           String     @id @default(uuid())
-  shortId      Int        @unique @default(autoincrement()) // 短ID
+  shortId      Int?       @unique // 全局唯一短ID（通过 GlobalShortIdAllocation 分配）
   name         String
   floor        String?
   dataCenterId String
@@ -36,7 +36,7 @@ model Room {
 // 机柜
 model Cabinet {
   id        String   @id @default(uuid())
-  shortId   Int      @unique @default(autoincrement()) // 短ID
+  shortId   Int?     @unique // 全局唯一短ID（通过 GlobalShortIdAllocation 分配）
   name      String
   position  String?  // 机房中的位置
   height    Int      @default(42) // U数，默认42U
@@ -142,10 +142,9 @@ enum PortStatus {
   FAULTY
 }
 
-// 端口
+// 端口（不需要 shortID，太小贴不了标签）
 model Port {
   id        String          @id @default(uuid())
-  shortId   Int             @unique @default(autoincrement()) // 短ID用于二维码和手动输入
   number    String          // 端口编号
   label     String?         // 端口标签
   status    PortStatus      @default(AVAILABLE)

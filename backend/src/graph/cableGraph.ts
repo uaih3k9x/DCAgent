@@ -25,11 +25,19 @@ export interface ConnectionQueryResult {
     id: string;
     number: string;
     label?: string;
+    panelId?: string;
   };
   portB: {
     id: string;
     number: string;
     label?: string;
+    panelId?: string;
+  };
+  panelB: {
+    id: string;
+    name: string;
+    type: string;
+    deviceId?: string;
   };
 }
 
@@ -160,6 +168,7 @@ class CableGraphService {
 
   /**
    * 查询面板的所有连接关系（双向）
+   * 返回完整的连接信息，包括对端面板信息
    */
   async findPanelConnections(panelId: string): Promise<ConnectionQueryResult[]> {
     const session = neo4jConnection.getSession();
@@ -179,6 +188,7 @@ class CableGraphService {
         cable: record.get('cable').properties,
         portA: record.get('port1').properties,
         portB: record.get('port2').properties,
+        panelB: record.get('panel2').properties,
       }));
     } finally {
       await session.close();

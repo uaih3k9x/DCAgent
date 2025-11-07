@@ -1,0 +1,20 @@
+/* 扫码跳转高亮样式 */
+@keyframes highlightPulse {
+  0%, 100% {
+    background-color: transparent;
+    box-shadow: none;
+  }
+  50% {
+    background-color: rgba(24, 144, 255, 0.1);
+    box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.3);
+  }
+}
+
+.highlighted-row {
+  animation: highlightPulse 1s ease-in-out 3;
+  transition: all 0.3s ease;
+}
+
+.highlighted-row:hover {
+  background-color: rgba(24, 144, 255, 0.05);
+}

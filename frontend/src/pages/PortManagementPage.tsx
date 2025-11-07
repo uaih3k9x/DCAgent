@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Layout,
   Card,
@@ -28,12 +29,14 @@ import {
   PlusOutlined,
   ThunderboltOutlined,
   SettingOutlined,
+  ApartmentOutlined,
 } from '@ant-design/icons';
 import { Device, Panel, Port, PortStatus, PanelType } from '@/types';
 import { deviceService } from '@/services/deviceService';
 import { panelService } from '@/services/panelService';
 import { portService } from '@/services/portService';
 import { PanelVisualizer } from '@/components/PanelVisualizer';
+import { SimplifiedTopology } from '@/components/SimplifiedTopology';
 import { sortPorts } from '@/utils/portUtils';
 import {
   PORT_GROUP_TEMPLATES,
@@ -69,6 +72,8 @@ const panelTypeMap: Record<PanelType, { label: string; color: string }> = {
 };
 
 export default function PortManagementPage() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [devices, setDevices] = useState<Device[]>([]);
   const [panels, setPanels] = useState<Panel[]>([]);
   const [ports, setPorts] = useState<Port[]>([]);
@@ -86,6 +91,9 @@ export default function PortManagementPage() {
   const [bulkCreateModalVisible, setBulkCreateModalVisible] = useState(false);
   const [templateModalVisible, setTemplateModalVisible] = useState(false);
   const [editingPort, setEditingPort] = useState<Port | null>(null);
+
+  // 扫码跳转相关状态
+  const [highlightedPortId, setHighlightedPortId] = useState<string | null>(null);
 
   const [portForm] = Form.useForm();
   const [panelConfigForm] = Form.useForm();
@@ -150,6 +158,41 @@ export default function PortManagementPage() {
     loadPanels();
     loadPorts(); // 初始加载所有端口（用于列表视图）
   }, []);
+
+  // 处理 URL 参数（扫码跳转）
+  useEffect(() => {
+    const panelId = searchParams.get('panelId');
+    const highlightPortId = searchParams.get('highlightPortId');
+    const tab = searchParams.get('tab');
+
+    if (panelId && panels.length > 0) {
+      // 查找面板
+      const panel = panels.find((p) => p.id === panelId);
+      if (panel) {
+        // 选中面板
+        setSelectedPanel(panel);
+        setSelectedPanelId(panelId);
+
+        // 如果指定了 tab，切换到对应的 Tab
+        if (tab) {
+          setActiveTab(tab);
+        }
+
+        // 如果指定了高亮端口，设置高亮状态
+        if (highlightPortId) {
+          setHighlightedPortId(highlightPortId);
+
+          // 3秒后取消高亮
+          setTimeout(() => {
+            setHighlightedPortId(null);
+          }, 3000);
+        }
+
+        // 加载该面板的端口
+        loadPorts(undefined, panelId);
+      }
+    }
+  }, [searchParams, panels]);
 
   // 选择面板（用于可视化视图）
   const handleSelectPanel = (panel: Panel) => {
@@ -665,15 +708,40 @@ export default function PortManagementPage() {
                   >
                     面板配置
                   </Button>
+                  <Button
+                    type="primary"
+                    icon={<ApartmentOutlined />}
+                    onClick={() => {
+                      if (selectedPanel) {
+                        navigate(`/topology?panelId=${selectedPanel.id}`);
+                      }
+                    }}
+                  >
+                    查看完整拓扑
+                  </Button>
                 </Space>
               </div>
 
-              <PanelVisualizer
-                panel={selectedPanel}
-                ports={ports}
-                onPortClick={handleOpenPortModal}
-                scale={0.8}
-              />
+              {/* 简化拓扑可视化 */}
+              <Card title="连接拓扑" style={{ marginBottom: 16 }} size="small">
+                <SimplifiedTopology
+                  panel={selectedPanel}
+                  highlightedPortId={highlightedPortId || undefined}
+                />
+              </Card>
+
+              <Divider />
+
+              {/* 端口物理布局 */}
+              <Card title="端口物理布局" size="small">
+                <PanelVisualizer
+                  panel={selectedPanel}
+                  ports={ports}
+                  onPortClick={handleOpenPortModal}
+                  scale={0.8}
+                  highlightedPortIds={highlightedPortId ? [highlightedPortId] : []}
+                />
+              </Card>
 
               <Divider />
 

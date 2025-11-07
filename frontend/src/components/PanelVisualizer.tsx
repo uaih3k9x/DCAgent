@@ -18,6 +18,7 @@ interface PanelVisualizerProps {
   labelMode?: 'always' | 'hover'; // 标签显示模式：always=始终显示，hover=悬浮显示
   showPortNumber?: boolean; // 是否显示端口编号（默认true）
   allowEdit?: boolean; // 是否允许编辑模式（默认false）
+  highlightedPortIds?: string[]; // 需要高亮的端口ID列表
 }
 
 // 端口状态颜色映射
@@ -46,6 +47,7 @@ export const PanelVisualizer: React.FC<PanelVisualizerProps> = ({
   labelMode = 'always', // 默认始终显示标签
   showPortNumber = true, // 默认显示端口编号
   allowEdit = false, // 默认不允许编辑
+  highlightedPortIds = [], // 默认无高亮
 }) => {
   const [hoveredPortId, setHoveredPortId] = useState<string | null>(null);
   const [isEditMode, setIsEditMode] = useState(false); // 编辑模式状态
@@ -230,6 +232,7 @@ export const PanelVisualizer: React.FC<PanelVisualizerProps> = ({
 
     const { x, y } = port.position;
     const { width, height } = port.size;
+    const isHighlighted = highlightedPortIds.includes(port.id);
     const color = portStatusColors[port.status];
     const rotation = (port as any).rotation || 0; // 获取旋转角度
 
@@ -289,15 +292,37 @@ export const PanelVisualizer: React.FC<PanelVisualizerProps> = ({
           {/* 如果有端口类型图标，使用SVG图标 */}
           {portIcon ? (
             <g transform={`translate(${x}, ${y})`}>
-              {/* 容器边框（绿色框框） */}
+              {/* 高亮外框（扫码跳转时显示） */}
+              {isHighlighted && (
+                <rect
+                  x={-4}
+                  y={-4}
+                  width={width + 8}
+                  height={height + 8}
+                  fill="none"
+                  stroke="#1890ff"
+                  strokeWidth="3"
+                  rx="2"
+                  className="port-highlight-border"
+                  style={{ pointerEvents: 'none' }}
+                >
+                  <animate
+                    attributeName="opacity"
+                    values="1;0.3;1"
+                    dur="1s"
+                    repeatCount="indefinite"
+                  />
+                </rect>
+              )}
+              {/* 容器边框（状态颜色框框） */}
               <rect
                 x={0}
                 y={0}
                 width={width}
                 height={height}
                 fill="none"
-                stroke={color}
-                strokeWidth="2"
+                stroke={isHighlighted ? '#1890ff' : color}
+                strokeWidth={isHighlighted ? "3" : "2"}
                 rx="1"
                 className="port-status-border"
                 style={{ pointerEvents: 'none' }}
@@ -333,14 +358,36 @@ export const PanelVisualizer: React.FC<PanelVisualizerProps> = ({
           ) : (
             /* 没有图标时，使用原有的矩形显示 */
             <>
+              {/* 高亮外框（扫码跳转时显示） */}
+              {isHighlighted && (
+                <rect
+                  x={x - 4}
+                  y={y - 4}
+                  width={width + 8}
+                  height={height + 8}
+                  fill="none"
+                  stroke="#1890ff"
+                  strokeWidth="3"
+                  rx="2"
+                  className="port-highlight-border"
+                  style={{ pointerEvents: 'none' }}
+                >
+                  <animate
+                    attributeName="opacity"
+                    values="1;0.3;1"
+                    dur="1s"
+                    repeatCount="indefinite"
+                  />
+                </rect>
+              )}
               <rect
                 x={x}
                 y={y}
                 width={width}
                 height={height}
                 fill={color}
-                stroke="#333"
-                strokeWidth="1"
+                stroke={isHighlighted ? '#1890ff' : '#333'}
+                strokeWidth={isHighlighted ? "3" : "1"}
                 className="port-rect"
                 style={{ pointerEvents: 'none' }}
               />
