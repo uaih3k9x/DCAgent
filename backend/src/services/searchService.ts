@@ -147,21 +147,19 @@ class SearchService {
 
   /**
    * 根据 shortId 查找实体
-   * 只支持有shortId的实体：Room、Cabinet、Panel、Port
+   * 支持：Room、Cabinet、Panel、Port（从全局分配表）
+   * 以及：CableEndpoint（从ShortIdPool和CableEndpoint表）
    */
   async findByShortId(shortId: number): Promise<SearchResult | null> {
     try {
-      // 1. 从全局分配表查找实体类型和ID
+      // 1. 先从全局分配表查找（Room、Cabinet、Panel、Port）
       const allocation = await globalShortIdService.getEntityByShortId(shortId);
 
-      if (!allocation) {
-        return null;
-      }
+      if (allocation) {
+        const { entityType, entityId } = allocation;
 
-      const { entityType, entityId } = allocation;
-
-      // 2. 根据实体类型获取完整数据
-      switch (entityType) {
+        // 2. 根据实体类型获取完整数据
+        switch (entityType) {
         case 'Room': {
           const room = await prisma.room.findUnique({
             where: { id: entityId },
@@ -225,7 +223,35 @@ class SearchService {
         default:
           console.warn(`Unknown entity type: ${entityType}`);
           return null;
+        }
       }
+
+      // 3. 如果全局分配表没有，查找线缆端点标签
+      const endpoint = await prisma.cableEndpoint.findUnique({
+        where: { shortId },
+        include: {
+          cable: true,
+        },
+      });
+
+      if (endpoint && endpoint.shortId !== null) {
+        return {
+          type: 'Cable',
+          id: endpoint.cable.id,
+          shortId: endpoint.shortId,
+          name: `Cable ${endpoint.cable.label || endpoint.cable.type}`,
+          description: `Endpoint ${endpoint.endType} - ${endpoint.cable.type}`,
+          metadata: {
+            ...endpoint.cable,
+            endpointId: endpoint.id,
+            endpointShortId: endpoint.shortId,
+            endType: endpoint.endType,
+          },
+        };
+      }
+
+      // 4. 都没找到，返回 null
+      return null;
     } catch (error) {
       console.error('Error finding by shortId:', error);
       throw error;
