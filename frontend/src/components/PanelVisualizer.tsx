@@ -381,7 +381,7 @@ export const PanelVisualizer: React.FC<PanelVisualizerProps> = ({
               onClick={handleEditModeToggle}
               size="small"
             >
-              {isEditMode ? '编辑中' : '解锁编辑'}
+              {isEditMode ? '编辑中' : '解锁编辑端口'}
             </Button>
             {isEditMode && (
               <Button

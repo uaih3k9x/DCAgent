@@ -22,8 +22,9 @@ import {
 import { Panel, PanelType, Device } from '@/types';
 import { panelService } from '@/services/panelService';
 import { deviceService } from '@/services/deviceService';
+import { ShortIdFormatter } from '@/utils/shortIdFormatter';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 const { Search } = Input;
 const { Option } = Select;
 
@@ -157,10 +158,12 @@ export default function PanelList() {
 
   const columns = [
     {
-      title: 'ID',
+      title: 'shortID',
       dataIndex: 'shortId',
       key: 'shortId',
-      width: 80,
+      width: 120,
+      render: (shortId: number | undefined) =>
+        shortId ? <Text code>{ShortIdFormatter.toDisplayFormat(shortId)}</Text> : '-',
     },
     {
       title: '面板名称',

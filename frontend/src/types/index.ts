@@ -101,6 +101,7 @@ export interface Panel {
   id: string;
   name: string;
   type: PanelType;
+  shortId?: number; // 面板shortID，用于快速识别和扫码
   deviceId: string;
   device?: Device; // 关联的设备信息
   // 面板位置

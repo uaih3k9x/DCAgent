@@ -67,4 +67,10 @@ export const portService = {
     const response = await api.post('/ports/available', { panelId });
     return response.data;
   },
+
+  // 通过shortId获取端口
+  async getByShortId(shortId: number): Promise<Port> {
+    const response = await api.post('/ports/by-shortid', { shortId });
+    return response.data;
+  },
 };

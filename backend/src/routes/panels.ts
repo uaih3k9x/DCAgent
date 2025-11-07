@@ -8,6 +8,7 @@ const router = Router();
 const createPanelSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   type: z.enum(['NETWORK', 'POWER', 'CONSOLE', 'USB', 'MIXED', 'OTHER']),
+  shortId: z.number().int().positive().optional(), // 面板shortID
   deviceId: z.string().uuid('Invalid device ID'),
   // 模板相关
   templateId: z.string().uuid().optional(),
@@ -29,6 +30,7 @@ const updatePanelSchema = z.object({
   id: z.string().uuid('Invalid ID'),
   name: z.string().min(1).optional(),
   type: z.enum(['NETWORK', 'POWER', 'CONSOLE', 'USB', 'MIXED', 'OTHER']).optional(),
+  shortId: z.number().int().positive().nullable().optional(), // 面板shortID
   // 模板相关
   templateId: z.string().uuid().nullable().optional(),
   isCustomized: z.boolean().optional(),

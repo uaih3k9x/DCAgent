@@ -51,6 +51,7 @@ import type { Panel as PanelType, Device, Cabinet, Port, Room } from '@/types';
 import CreateCableModal from '@/components/CreateCableModal';
 import PanelCanvasEditor, { PortDefinition } from '@/components/PanelCanvasEditor';
 import { getPortSize } from '@/constants/portSizes';
+import { ShortIdFormatter } from '@/utils/shortIdFormatter';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -655,13 +656,10 @@ function CableTopologyContent() {
     setScanInput(value);
     if (!value.trim()) return;
 
-    const shortId = parseInt(value.trim(), 10);
-    if (isNaN(shortId)) {
-      message.error('请输入有效的数字ID');
-      return;
-    }
-
     try {
+      // 使用 ShortIdFormatter 解析输入（支持 E-00001 或纯数字）
+      const shortId = ShortIdFormatter.toNumericFormat(value.trim());
+
       const panel = await panelService.getByShortId(shortId);
       if (panel) {
         message.success(`已加载面板：${panel.name}`);
@@ -681,7 +679,7 @@ function CableTopologyContent() {
       }
     } catch (error) {
       console.error('Failed to load panel by shortId:', error);
-      message.error('未找到该ID对应的面板');
+      message.error('未找到该ID对应的面板或格式无效（请使用 E-00001 或 1 格式）');
     }
   };
 

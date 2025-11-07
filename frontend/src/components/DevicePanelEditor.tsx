@@ -16,18 +16,21 @@ import {
   Tooltip,
   message,
   Divider,
+  Typography,
 } from 'antd';
 import {
   EditOutlined,
   SaveOutlined,
   InfoCircleOutlined,
-  LockOutlined,
-  UnlockOutlined,
 } from '@ant-design/icons';
 import { Panel, PanelType, PanelTemplate, Device, DeviceType, Port } from '@/types';
 import { panelTemplateService } from '@/services/panelTemplateService';
 import { portService } from '@/services/portService';
+import { shortIdPoolService } from '@/services/shortIdPoolService';
+import { ShortIdFormatter } from '@/utils/shortIdFormatter';
 import PanelCanvasEditor, { PortDefinition } from './PanelCanvasEditor';
+
+const { Text } = Typography;
 
 const { Option } = Select;
 
@@ -42,6 +45,7 @@ interface DevicePanelEditorProps {
 interface FormValues {
   name: string;
   type: PanelType;
+  shortId?: string; // shortID (支持E-XXXXX格式或纯数字)
   width?: number;
   height?: number;
   backgroundColor?: string;
@@ -62,7 +66,7 @@ export const DevicePanelEditor: React.FC<DevicePanelEditorProps> = ({
   const [useTemplate, setUseTemplate] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<PanelTemplate | null>(null);
   const [previewSize, setPreviewSize] = useState({ width: 482.6, height: 44.45 });
-  const [isEditMode, setIsEditMode] = useState(false); // 是否处于可视化编辑模式
+  const [isEditMode] = useState(false); // 是否处于可视化编辑模式
   const [ports, setPorts] = useState<PortDefinition[]>([]); // 端口数据
   const [, setLoadingPorts] = useState(false);
 
@@ -131,6 +135,7 @@ export const DevicePanelEditor: React.FC<DevicePanelEditorProps> = ({
       form.setFieldsValue({
         name: panel.name,
         type: panel.type,
+        shortId: panel.shortId ? ShortIdFormatter.toDisplayFormat(panel.shortId) : undefined,
         width,
         height,
         backgroundColor: panel.backgroundColor || '#FFFFFF',
@@ -203,9 +208,33 @@ export const DevicePanelEditor: React.FC<DevicePanelEditorProps> = ({
       setLoading(true);
       const values = await form.validateFields();
 
+      // 处理shortID
+      let numericShortId: number | undefined = undefined;
+      if (values.shortId && values.shortId.trim()) {
+        try {
+          // 如果是格式化的shortID (E-XXXXX)，转换为数字
+          numericShortId = ShortIdFormatter.toNumericFormat(values.shortId.trim());
+
+          // 验证shortID是否已存在（如果是新ID或者与原ID不同）
+          if (numericShortId !== panel?.shortId) {
+            const checkResult = await shortIdPoolService.checkShortIdExists(numericShortId);
+            if (checkResult.exists && checkResult.usedBy === 'entity' && checkResult.entityType === 'PANEL') {
+              message.error(`shortID ${values.shortId} 已被其他面板使用`);
+              setLoading(false);
+              return;
+            }
+          }
+        } catch (error) {
+          message.error('shortID格式无效，请使用 E-XXXXX 格式或纯数字');
+          setLoading(false);
+          return;
+        }
+      }
+
       const panelData: Partial<Panel> = {
         name: values.name,
         type: values.type,
+        shortId: numericShortId,
         deviceId: device.id,
         size: {
           width: values.width ?? 482.6,
@@ -319,15 +348,6 @@ export const DevicePanelEditor: React.FC<DevicePanelEditorProps> = ({
         <Button key="cancel" onClick={onCancel}>
           取消
         </Button>,
-        panel && (
-          <Button
-            key="edit"
-            icon={isEditMode ? <LockOutlined /> : <UnlockOutlined />}
-            onClick={() => setIsEditMode(!isEditMode)}
-          >
-            {isEditMode ? '锁定编辑' : '解锁编辑'}
-          </Button>
-        ),
         <Button
           key="save"
           type="primary"
@@ -340,7 +360,7 @@ export const DevicePanelEditor: React.FC<DevicePanelEditorProps> = ({
       ]}
     >
       <div style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-        {/* 设备信息 */}
+        {/* 设备和面板信息 */}
         <Card size="small" style={{ marginBottom: 16 }}>
           <Descriptions column={2} size="small">
             <Descriptions.Item label="设备名称">{device.name}</Descriptions.Item>
@@ -349,6 +369,11 @@ export const DevicePanelEditor: React.FC<DevicePanelEditorProps> = ({
             <Descriptions.Item label="U位">
               U{device.uPosition} (高{device.uHeight}U)
             </Descriptions.Item>
+            {panel && panel.shortId && (
+              <Descriptions.Item label="面板 shortID">
+                <Text code>{ShortIdFormatter.toDisplayFormat(panel.shortId)}</Text>
+              </Descriptions.Item>
+            )}
           </Descriptions>
         </Card>
 
@@ -408,7 +433,22 @@ export const DevicePanelEditor: React.FC<DevicePanelEditorProps> = ({
           </Row>
 
           <Row gutter={16}>
-            <Col span={24}>
+            <Col span={12}>
+              <Form.Item
+                name="shortId"
+                label={
+                  <Space>
+                    <span>面板 shortID</span>
+                    <Tooltip title="用于快速识别和扫码，支持格式：E-00001 或 1">
+                      <InfoCircleOutlined />
+                    </Tooltip>
+                  </Space>
+                }
+              >
+                <Input placeholder="E-00001 或 1（可选）" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
               <Form.Item
                 name="backgroundColor"
                 label="背景颜色"

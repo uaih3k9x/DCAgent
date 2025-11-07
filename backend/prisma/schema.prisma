@@ -117,6 +117,7 @@ model Panel {
   id              String         @id @default(uuid())
   name            String
   type            PanelType
+  shortId         Int?           @unique // 面板shortID，用于快速识别和扫码
   deviceId        String
   device          Device         @relation(fields: [deviceId], references: [id], onDelete: Cascade)
   ports           Port[]
@@ -180,19 +181,28 @@ enum CableType {
   OTHER
 }
 
+// 线缆入库状态枚举
+enum CableInventoryStatus {
+  NOT_INVENTORIED  // 未入库（线缆记录存在但未绑定端口）
+  INVENTORIED      // 已入库（已绑定端口，待连接）
+  IN_USE           // 使用中（已连接端口并在用）
+}
+
 // 线缆（基础信息存储在关系数据库，连接关系存储在Neo4j）
 model Cable {
-  id          String          @id @default(uuid())
-  shortId     Int             @unique @default(autoincrement()) // 短ID用于二维码
-  label       String?         // 线缆标签
-  type        CableType
-  length      Float?          // 长度（米）
-  color       String?
-  notes       String?
-  isBranched  Boolean         @default(false) // 是否为分支线缆（1对多）
-  endpoints   CableEndpoint[] // 线缆端点
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id               String                @id @default(uuid())
+  shortId          Int                   @unique @default(autoincrement()) // 短ID用于二维码
+  label            String?               // 线缆标签
+  type             CableType
+  length           Float?                // 长度（米）
+  color            String?
+  notes            String?
+  isBranched       Boolean               @default(false) // 是否为分支线缆（1对多）
+  inventoryStatus  CableInventoryStatus  @default(NOT_INVENTORIED) // 入库状态
+  endpoints        CableEndpoint[]       // 线缆端点
+  shortIdPools     CableShortIdPool[]    // shortID池关联（用于预分配ID）
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
 }
 
 // 线缆端点（支持1对多连接）
@@ -206,4 +216,81 @@ model CableEndpoint {
   createdAt DateTime @default(now())
 
   @@unique([cableId, endType]) // 确保同一线缆的端点类型唯一
+}
+
+// ShortID池状态枚举
+enum ShortIdPoolStatus {
+  GENERATED   // 已生成（刚创建）
+  PRINTED     // 已打印（被打印任务标记）
+  BOUND       // 已绑定（已绑定到实体）
+  CANCELLED   // 已报废（标签损坏、丢失等）
+}
+
+// 实体类型枚举（所有使用shortID的实体）
+enum EntityType {
+  DATA_CENTER
+  ROOM
+  CABINET
+  DEVICE
+  PANEL
+  PORT
+  CABLE
+}
+
+// 打印任务表
+model PrintTask {
+  id          String         @id @default(uuid())
+  name        String         // 任务名称，如 "2025年第一批标签"
+  count       Int            // 打印数量
+  status      String         @default("PENDING") // PENDING/PRINTING/COMPLETED/FAILED
+  filePath    String?        // 导出文件路径（CSV/Excel）
+  notes       String?        // 备注
+  shortIds    ShortIdPool[]  // 关联的shortID
+  createdBy   String?        // 创建人
+  createdAt   DateTime       @default(now())
+  completedAt DateTime?      // 完成时间
+  updatedAt   DateTime       @updatedAt
+}
+
+// 统一的ShortID池（用于预先打印标签）
+model ShortIdPool {
+  id           String             @id @default(uuid())
+  shortId      Int                @unique  // 预分配的shortID
+  status       ShortIdPoolStatus  @default(GENERATED) // 状态
+
+  // 绑定信息（使用时填充）
+  entityType   EntityType?        // 绑定时的实体类型
+  entityId     String?            // 绑定的实体ID
+  boundAt      DateTime?          // 绑定时间
+
+  // 打印任务关联
+  printTaskId  String?
+  printTask    PrintTask?         @relation(fields: [printTaskId], references: [id], onDelete: SetNull)
+  printedAt    DateTime?          // 打印时间
+
+  // 其他信息
+  batchNo      String?            // 批次号
+  notes        String?            // 备注（如作废原因等）
+
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([entityType, status])
+  @@index([shortId])
+  @@index([status])
+}
+
+// 为了保持向后兼容，Cable表的shortIdPools关系暂时保留
+// 后续会迁移到统一的ShortIdPool表
+model CableShortIdPool {
+  id          String        @id @default(uuid())
+  shortId     Int           @unique
+  status      String        @default("AVAILABLE")
+  cableId     String?       @unique
+  cable       Cable?        @relation(fields: [cableId], references: [id], onDelete: SetNull)
+  allocatedAt DateTime      @default(now())
+  usedAt      DateTime?
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 }

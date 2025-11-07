@@ -52,6 +52,7 @@ import { CabinetVisualizer, ViewMode } from '@/components/CabinetVisualizer';
 import { PanelVisualizer } from '@/components/PanelVisualizer';
 import { DevicePanelEditor } from '@/components/DevicePanelEditor';
 import { generatePortLayout, sortPortsByNumber } from '@/utils/panelLayoutGenerator';
+import { ShortIdFormatter } from '@/utils/shortIdFormatter';
 
 
 interface CascaderOption {
@@ -1155,7 +1156,10 @@ export default function CabinetList() {
                     <TabPane
                       tab={
                         <Space>
-                          {panel.name} ({panel.type})
+                          {panel.name}
+                          {panel.shortId && (
+                            <Text code>{ShortIdFormatter.toDisplayFormat(panel.shortId)}</Text>
+                          )}
                           {hasTemplate && <Tag color="blue">模板</Tag>}
                           {panel.isCustomized && <Tag color="orange">已自定义</Tag>}
                         </Space>
@@ -1168,7 +1172,7 @@ export default function CabinetList() {
                             icon={<EditOutlined />}
                             onClick={() => handleOpenPanelEditor(panel)}
                           >
-                            编辑面板
+                            编辑面板信息
                           </Button>
                           {hasTemplate && (
                             <Popconfirm

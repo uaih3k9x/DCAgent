@@ -7,6 +7,8 @@ import {
   ApartmentOutlined,
   CloudUploadOutlined,
   FileTextOutlined,
+  ScanOutlined,
+  TagsOutlined,
   // MonitorOutlined, // SNMP 监控模块已隐藏
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -72,7 +74,17 @@ export default function AppSidebar() {
           icon: <ApartmentOutlined />,
           label: '线缆拓扑',
         },
+        {
+          key: '/cable-manual-inventory',
+          icon: <ScanOutlined />,
+          label: '线缆手动入库',
+        },
       ],
+    },
+    {
+      key: '/shortid-pool',
+      icon: <TagsOutlined />,
+      label: 'shortID池管理',
     },
     // SNMP 设备监控菜单已隐藏
     // {

@@ -81,4 +81,40 @@ export const cableService = {
     const response = await api.get('/cables', { params: { search } });
     return response.data;
   },
+
+  // 手动入库（通过扫码两端端口shortID）
+  async manualInventory(data: {
+    shortIdA: number;
+    shortIdB: number;
+    label?: string;
+    type: string;
+    length?: number;
+    color?: string;
+    notes?: string;
+  }): Promise<Cable> {
+    const response = await api.post('/cables/manual-inventory', data);
+    return response.data;
+  },
+
+  // 检查单个shortID是否可用
+  async checkShortId(shortId: number): Promise<{
+    available: boolean;
+    message: string;
+    usedBy?: 'cable' | 'pool' | null;
+    details?: any;
+  }> {
+    const response = await api.post('/cables/check-shortid', { shortId });
+    return response.data;
+  },
+
+  // 批量检查多个shortID可用性
+  async checkMultipleShortIds(shortIds: number[]): Promise<{
+    hasConflict: boolean;
+    message: string;
+    conflicts?: any[];
+    available?: any[];
+  }> {
+    const response = await api.post('/cables/check-multiple-shortids', { shortIds });
+    return response.data;
+  },
 };

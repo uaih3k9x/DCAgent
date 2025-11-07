@@ -41,6 +41,24 @@ const shortIdSchema = z.object({
   shortId: z.number().int().positive('Invalid shortId'),
 });
 
+const manualInventorySchema = z.object({
+  shortIdA: z.number().int().positive('Invalid shortIdA'),
+  shortIdB: z.number().int().positive('Invalid shortIdB'),
+  label: z.string().optional(),
+  type: z.enum(['CAT5E', 'CAT6', 'CAT6A', 'CAT7', 'FIBER_SM', 'FIBER_MM', 'QSFP_TO_SFP', 'QSFP_TO_QSFP', 'SFP_TO_SFP', 'POWER', 'OTHER']),
+  length: z.number().positive().optional(),
+  color: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+const checkShortIdSchema = z.object({
+  shortId: z.number().int().positive('Invalid shortId'),
+});
+
+const checkMultipleShortIdsSchema = z.object({
+  shortIds: z.array(z.number().int().positive()),
+});
+
 // GET /api/v1/cables - 获取列表
 router.get('/', async (req: Request, res: Response) => {
   try {
@@ -225,6 +243,54 @@ router.post('/endpoints-by-shortid', async (req: Request, res: Response) => {
     }
     console.error('Error fetching cable endpoints by shortId:', error);
     res.status(500).json({ error: 'Failed to fetch cable endpoints by shortId' });
+  }
+});
+
+// POST /api/v1/cables/manual-inventory - 手动入库（通过扫描两端端口shortID）
+router.post('/manual-inventory', async (req: Request, res: Response) => {
+  try {
+    const validatedData = manualInventorySchema.parse(req.body);
+    const cable = await cableService.manualInventoryCable(validatedData);
+    res.status(201).json(cable);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: error.errors });
+    }
+    if (error instanceof Error) {
+      return res.status(400).json({ error: error.message });
+    }
+    console.error('Error in manual inventory:', error);
+    res.status(500).json({ error: 'Failed to create manual inventory' });
+  }
+});
+
+// POST /api/v1/cables/check-shortid - 检查单个shortID是否可用
+router.post('/check-shortid', async (req: Request, res: Response) => {
+  try {
+    const { shortId } = checkShortIdSchema.parse(req.body);
+    const result = await cableService.checkCableShortIdAvailable(shortId);
+    res.json(result);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: error.errors });
+    }
+    console.error('Error checking shortId:', error);
+    res.status(500).json({ error: 'Failed to check shortId' });
+  }
+});
+
+// POST /api/v1/cables/check-multiple-shortids - 批量检查shortID可用性
+router.post('/check-multiple-shortids', async (req: Request, res: Response) => {
+  try {
+    const { shortIds } = checkMultipleShortIdsSchema.parse(req.body);
+    const result = await cableService.checkMultipleShortIds(shortIds);
+    res.json(result);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: error.errors });
+    }
+    console.error('Error checking multiple shortIds:', error);
+    res.status(500).json({ error: 'Failed to check multiple shortIds' });
   }
 });
 

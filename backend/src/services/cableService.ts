@@ -1,6 +1,7 @@
 import prisma from '../utils/prisma';
 import cableGraphService from '../graph/cableGraph';
 import { CableType } from '@prisma/client';
+import { cableShortIdPoolService } from './cableShortIdPoolService';
 
 export interface CreateCableDto {
   label?: string;
@@ -15,6 +16,16 @@ export interface CreateCableDto {
 export interface UpdateCableDto {
   label?: string;
   type?: CableType;
+  length?: number;
+  color?: string;
+  notes?: string;
+}
+
+export interface ManualInventoryCableDto {
+  shortIdA: number;  // 端口A的shortID（扫码输入）
+  shortIdB: number;  // 端口B的shortID（扫码输入）
+  label?: string;
+  type: CableType;
   length?: number;
   color?: string;
   notes?: string;
@@ -319,6 +330,146 @@ class CableService {
     }
 
     return await this.getCableEndpoints(cable.id);
+  }
+
+  /**
+   * 手动入库：通过扫描两端端口的shortID来创建线缆连接
+   * 会自动检查shortID重复并报警
+   */
+  async manualInventoryCable(data: ManualInventoryCableDto) {
+    const { shortIdA, shortIdB, ...cableData } = data;
+
+    // 1. 检查两个shortID是否重复
+    if (shortIdA === shortIdB) {
+      throw new Error('线缆两端的shortID不能相同');
+    }
+
+    // 2. 通过shortID查找端口A
+    const portA = await prisma.port.findUnique({
+      where: { shortId: shortIdA },
+      include: { panel: true },
+    });
+
+    if (!portA) {
+      throw new Error(`端口A (shortID: ${shortIdA}) 不存在，请检查扫码是否正确`);
+    }
+
+    // 3. 通过shortID查找端口B
+    const portB = await prisma.port.findUnique({
+      where: { shortId: shortIdB },
+      include: { panel: true },
+    });
+
+    if (!portB) {
+      throw new Error(`端口B (shortID: ${shortIdB}) 不存在，请检查扫码是否正确`);
+    }
+
+    // 4. 检查端口是否已被占用
+    if (portA.status === 'OCCUPIED') {
+      throw new Error(`端口A (${portA.label || portA.number}) 已被占用`);
+    }
+
+    if (portB.status === 'OCCUPIED') {
+      throw new Error(`端口B (${portB.label || portB.number}) 已被占用`);
+    }
+
+    // 5. 创建线缆记录（状态为INVENTORIED）
+    const cable = await prisma.cable.create({
+      data: {
+        ...cableData,
+        inventoryStatus: 'INVENTORIED', // 已入库
+      },
+    });
+
+    // 6. 同步端口和面板信息到Neo4j
+    if (portA.panel) {
+      await cableGraphService.syncPanelNode(portA.panel.id, portA.panel);
+    }
+    await cableGraphService.syncPortNode(portA.id, {
+      ...portA,
+      panelId: portA.panelId,
+    });
+
+    if (portB.panel) {
+      await cableGraphService.syncPanelNode(portB.panel.id, portB.panel);
+    }
+    await cableGraphService.syncPortNode(portB.id, {
+      ...portB,
+      panelId: portB.panelId,
+    });
+
+    // 7. 在图数据库中创建连接关系
+    await cableGraphService.createConnection({
+      cableId: cable.id,
+      portAId: portA.id,
+      portBId: portB.id,
+    });
+
+    // 8. 更新端口状态为OCCUPIED
+    await prisma.port.update({
+      where: { id: portA.id },
+      data: { status: 'OCCUPIED' },
+    });
+    await prisma.port.update({
+      where: { id: portB.id },
+      data: { status: 'OCCUPIED' },
+    });
+
+    return cable;
+  }
+
+  /**
+   * 检查线缆shortID是否已被使用
+   * 用于在打印标签前验证shortID的可用性
+   */
+  async checkCableShortIdAvailable(shortId: number) {
+    const result = await cableShortIdPoolService.checkShortIdExists(shortId);
+
+    if (result.exists) {
+      return {
+        available: false,
+        message: `shortID ${shortId} 已被占用`,
+        usedBy: result.usedBy,
+        details: result.details,
+      };
+    }
+
+    return {
+      available: true,
+      message: `shortID ${shortId} 可用`,
+    };
+  }
+
+  /**
+   * 批量检查多个shortID的可用性
+   */
+  async checkMultipleShortIds(shortIds: number[]) {
+    const results = await Promise.all(
+      shortIds.map(async (shortId) => {
+        const result = await this.checkCableShortIdAvailable(shortId);
+        return {
+          shortId,
+          ...result,
+        };
+      })
+    );
+
+    const duplicates = results.filter((r) => !r.available);
+
+    if (duplicates.length > 0) {
+      return {
+        hasConflict: true,
+        message: `发现 ${duplicates.length} 个shortID冲突`,
+        conflicts: duplicates,
+        available: results.filter((r) => r.available),
+      };
+    }
+
+    return {
+      hasConflict: false,
+      message: '所有shortID均可用',
+      available: results,
+    };
   }
 }
 

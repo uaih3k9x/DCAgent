@@ -4,6 +4,7 @@ import { PanelType } from '@prisma/client';
 export interface CreatePanelDto {
   name: string;
   type: PanelType;
+  shortId?: number; // 面板shortID
   deviceId: string;
   // 模板相关
   templateId?: string;
@@ -26,6 +27,7 @@ export interface CreatePanelDto {
 export interface UpdatePanelDto {
   name?: string;
   type?: PanelType;
+  shortId?: number | null; // 面板shortID
   // 模板相关
   templateId?: string | null;
   isCustomized?: boolean;
