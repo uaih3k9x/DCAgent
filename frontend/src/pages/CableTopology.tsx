@@ -262,19 +262,26 @@ function CableTopologyContent() {
   // 处理初始高亮（从路由状态）
   useEffect(() => {
     const state = location.state as any;
-    if (state?.highlightCable && state?.focusPanel) {
+    if (state?.focusPanel) {
       // 首先加载拓扑图
       loadTopology(state.focusPanel, depth);
 
-      // 延迟设置高亮，确保图已经加载完成
+      // 延迟设置高亮和聚焦，确保图已经加载完成
       setTimeout(() => {
-        // 找到对应的边（线缆）
-        const cableEdge = edges.find(e => e.data?.cable?.id === state.highlightCable);
-        if (cableEdge) {
-          setHighlightedEdgeIds([cableEdge.id]);
+        // 只有当存在 highlightCable 时才高亮线缆
+        if (state.highlightCable) {
+          const cableEdge = edges.find(e => e.data?.cable?.id === state.highlightCable);
+          if (cableEdge) {
+            setHighlightedEdgeIds([cableEdge.id]);
+          }
+
+          // 显示线缆信息提示
+          if (state.cableInfo) {
+            message.success(`已定位到线缆: ${state.cableInfo.label || state.cableInfo.type}`);
+          }
         }
 
-        // 高亮相关的面板节点
+        // 只有当存在 highlightPanels 时才高亮面板节点
         if (state.highlightPanels) {
           setHighlightedNodeIds(state.highlightPanels.filter(Boolean));
         }
@@ -287,11 +294,6 @@ function CableTopologyContent() {
             duration: 800,
             padding: 0.3,
           });
-        }
-
-        // 显示线缆信息提示
-        if (state.cableInfo) {
-          message.success(`已定位到线缆: ${state.cableInfo.label || state.cableInfo.type}`);
         }
       }, 1000); // 增加延迟以等待拓扑加载完成
     }

@@ -53,24 +53,12 @@ export function navigateToEntity(
       break;
 
     case 'Panel':
-      // 跳转到面板所在设备的机柜可视化视图，并显示面板详情
-      if (metadata?.deviceId && metadata?.cabinetId) {
-        path = '/cabinets';
-        state = {
-          activeTab: 'visual',
-          selectedCabinetId: metadata.cabinetId,
-          selectedDeviceId: metadata.deviceId,
-          selectedPanelId: id,
-          showDevicePanels: true,
-        };
-      } else {
-        // 降级方案：跳转到端口管理页
-        path = '/ports';
-        state = {
-          activeTab: 'visual',
-          selectedPanelId: id,
-        };
-      }
+      // 跳转到拓扑图页面，加载该面板的网络拓扑
+      path = '/topology';
+      state = {
+        focusPanel: id, // 聚焦并加载该面板的拓扑
+        // 不设置 highlightCable，因为不需要高亮任何线缆
+      };
       break;
 
     case 'Port':
