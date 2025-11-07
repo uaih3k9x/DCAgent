@@ -10,10 +10,9 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// 数据中心
+// 数据中心（作为入口选择页面，不需要shortID）
 model DataCenter {
   id        String   @id @default(uuid())
-  shortId   Int      @unique @default(autoincrement()) // 短ID用于二维码和手动输入
   name      String
   location  String?
   rooms     Room[]
@@ -59,10 +58,9 @@ enum DeviceType {
   OTHER
 }
 
-// 设备
+// 设备（可以通过Cabinet唯一找到，不需要独立的shortID）
 model Device {
   id          String     @id @default(uuid())
-  shortId     Int        @unique @default(autoincrement()) // 短ID
   name        String
   type        DeviceType
   model       String?
@@ -188,10 +186,9 @@ enum CableInventoryStatus {
   IN_USE           // 使用中（已连接端口并在用）
 }
 
-// 线缆（基础信息存储在关系数据库，连接关系存储在Neo4j）
+// 线缆（可以通过两端Port唯一找到，不需要独立的shortID）
 model Cable {
   id               String                @id @default(uuid())
-  shortId          Int                   @unique @default(autoincrement()) // 短ID用于二维码
   label            String?               // 线缆标签
   type             CableType
   length           Float?                // 长度（米）

@@ -1,6 +1,5 @@
 import prisma from '../utils/prisma';
 import { DeviceType } from '@prisma/client';
-import globalShortIdService from './globalShortIdService';
 
 export interface CreateDeviceDto {
   name: string;
@@ -23,22 +22,8 @@ export interface UpdateDeviceDto {
 
 class DeviceService {
   async createDevice(data: CreateDeviceDto) {
-    // 先创建实体
-    const device = await prisma.device.create({
+    return await prisma.device.create({
       data,
-      include: {
-        cabinet: true,
-        panels: true,
-      },
-    });
-
-    // 分配全局唯一的 shortId
-    const shortId = await globalShortIdService.allocate('Device', device.id);
-
-    // 更新实体的 shortId
-    return await prisma.device.update({
-      where: { id: device.id },
-      data: { shortId },
       include: {
         cabinet: true,
         panels: true,
@@ -68,27 +53,6 @@ class DeviceService {
     });
   }
 
-  async getDeviceByShortId(shortId: number) {
-    return await prisma.device.findUnique({
-      where: { shortId },
-      include: {
-        cabinet: {
-          include: {
-            room: {
-              include: {
-                dataCenter: true,
-              },
-            },
-          },
-        },
-        panels: {
-          include: {
-            ports: true,
-          },
-        },
-      },
-    });
-  }
 
   async getAllDevices() {
     return await prisma.device.findMany({
@@ -130,23 +94,9 @@ class DeviceService {
   }
 
   async deleteDevice(id: string) {
-    // 先获取实体的 shortId
-    const device = await prisma.device.findUnique({
-      where: { id },
-      select: { shortId: true },
-    });
-
-    // 删除实体
-    const deleted = await prisma.device.delete({
+    return await prisma.device.delete({
       where: { id },
     });
-
-    // 释放 shortId
-    if (device?.shortId) {
-      await globalShortIdService.release(device.shortId);
-    }
-
-    return deleted;
   }
 
   async searchDevices(query: string) {

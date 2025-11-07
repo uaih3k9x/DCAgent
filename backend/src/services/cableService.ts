@@ -2,7 +2,6 @@ import prisma from '../utils/prisma';
 import cableGraphService from '../graph/cableGraph';
 import { CableType } from '@prisma/client';
 import { cableShortIdPoolService } from './cableShortIdPoolService';
-import globalShortIdService from './globalShortIdService';
 
 export interface CreateCableDto {
   label?: string;
@@ -63,15 +62,6 @@ class CableService {
       data: cableData,
     });
 
-    // 分配全局唯一的 shortId
-    const shortId = await globalShortIdService.allocate('Cable', cable.id);
-
-    // 更新线缆的 shortId
-    const updatedCable = await prisma.cable.update({
-      where: { id: cable.id },
-      data: { shortId },
-    });
-
     // 同步端口和面板信息到Neo4j
     if (portA.panel) {
       await cableGraphService.syncPanelNode(portA.panel.id, portA.panel);
@@ -91,15 +81,14 @@ class CableService {
 
     // 在图数据库中创建连接关系，并同步线缆信息
     await cableGraphService.createConnection({
-      cableId: updatedCable.id,
+      cableId: cable.id,
       portAId,
       portBId,
       cableData: {
-        label: updatedCable.label || undefined,
-        type: updatedCable.type,
-        color: updatedCable.color || undefined,
-        length: updatedCable.length || undefined,
-        shortId: updatedCable.shortId,
+        label: cable.label || undefined,
+        type: cable.type,
+        color: cable.color || undefined,
+        length: cable.length || undefined,
       },
     });
 
@@ -113,7 +102,7 @@ class CableService {
       data: { status: 'OCCUPIED' },
     });
 
-    return updatedCable;
+    return cable;
   }
 
   /**
@@ -134,21 +123,6 @@ class CableService {
     return cable;
   }
 
-  /**
-   * 通过 shortId 获取线缆详情
-   */
-  async getCableByShortId(shortId: number) {
-    const cable = await prisma.cable.findUnique({
-      where: { shortId },
-    });
-
-    if (!cable) {
-      return null;
-    }
-
-    // 从图数据库查询连接关系
-    return cable;
-  }
 
   /**
    * 获取所有线缆
@@ -195,7 +169,6 @@ class CableService {
       label: cable.label,
       color: cable.color,
       length: cable.length,
-      shortId: cable.shortId,
     });
 
     return cable;
@@ -205,26 +178,13 @@ class CableService {
    * 删除线缆（同时删除图数据库中的连接关系）
    */
   async deleteCable(id: string) {
-    // 先获取线缆的 shortId
-    const cable = await prisma.cable.findUnique({
-      where: { id },
-      select: { shortId: true },
-    });
-
     // 从图数据库删除连接关系
     await cableGraphService.deleteConnection(id);
 
     // 删除线缆记录
-    const deleted = await prisma.cable.delete({
+    return await prisma.cable.delete({
       where: { id },
     });
-
-    // 释放 shortId
-    if (cable?.shortId) {
-      await globalShortIdService.release(cable.shortId);
-    }
-
-    return deleted;
   }
 
   /**
@@ -356,25 +316,11 @@ class CableService {
     };
   }
 
-  /**
-   * 通过线缆的 shortId 获取端点信息
-   */
-  async getCableEndpointsByShortId(shortId: number) {
-    const cable = await prisma.cable.findUnique({
-      where: { shortId },
-    });
-
-    if (!cable) {
-      return null;
-    }
-
-    return await this.getCableEndpoints(cable.id);
-  }
 
   /**
    * 手动入库：通过扫描线缆两端标签的shortID来创建线缆记录
-   * shortIdA 和 shortIdB 是线缆端点的标签（未分配的shortID）
-   * 线缆本身会自动分配一个新的shortID
+   * shortIdA 和 shortIdB 是线缆端点的标签（从ShortIdPool预分配的shortID）
+   * 线缆本身通过两端端口可以唯一确定，不需要独立的shortID
    */
   async manualInventoryCable(data: ManualInventoryCableDto) {
     const { shortIdA, shortIdB, ...cableData } = data;
@@ -384,15 +330,19 @@ class CableService {
       throw new Error('线缆两端的shortID不能相同');
     }
 
-    // 2. 检查这两个shortID是否已被占用
-    const existingA = await globalShortIdService.getEntityByShortId(shortIdA);
-    if (existingA) {
-      throw new Error(`ShortID ${shortIdA} 已被占用（类型：${existingA.entityType}）`);
+    // 2. 检查这两个shortID是否在shortID池中可用
+    const poolA = await prisma.shortIdPool.findUnique({
+      where: { shortId: shortIdA },
+    });
+    if (!poolA || poolA.status !== 'AVAILABLE') {
+      throw new Error(`ShortID ${shortIdA} 不可用或不存在于标签池中`);
     }
 
-    const existingB = await globalShortIdService.getEntityByShortId(shortIdB);
-    if (existingB) {
-      throw new Error(`ShortID ${shortIdB} 已被占用（类型：${existingB.entityType}）`);
+    const poolB = await prisma.shortIdPool.findUnique({
+      where: { shortId: shortIdB },
+    });
+    if (!poolB || poolB.status !== 'AVAILABLE') {
+      throw new Error(`ShortID ${shortIdB} 不可用或不存在于标签池中`);
     }
 
     // 3. 创建线缆记录（状态为INVENTORIED）
@@ -403,48 +353,45 @@ class CableService {
       },
     });
 
-    // 4. 分配线缆的全局唯一 shortId
-    const cableShortId = await globalShortIdService.allocate('Cable', cable.id);
-
-    // 更新线缆的 shortId
-    const updatedCable = await prisma.cable.update({
-      where: { id: cable.id },
-      data: { shortId: cableShortId },
-    });
-
-    // 5. 创建端点A，并分配 shortIdA
+    // 4. 创建端点A，并关联 shortIdA
     const endpointA = await prisma.cableEndpoint.create({
       data: {
         cableId: cable.id,
         endType: 'A',
         portId: null, // 入库时不连接端口
+        shortId: shortIdA,
       },
     });
 
-    // 分配端点A的shortId
-    await globalShortIdService.allocate('CableEndpoint', endpointA.id, shortIdA);
-    await prisma.cableEndpoint.update({
-      where: { id: endpointA.id },
-      data: { shortId: shortIdA },
+    // 标记shortIdA为已使用
+    await prisma.shortIdPool.update({
+      where: { shortId: shortIdA },
+      data: {
+        status: 'USED',
+        usedAt: new Date(),
+      },
     });
 
-    // 6. 创建端点B，并分配 shortIdB
+    // 5. 创建端点B，并关联 shortIdB
     const endpointB = await prisma.cableEndpoint.create({
       data: {
         cableId: cable.id,
         endType: 'B',
         portId: null, // 入库时不连接端口
+        shortId: shortIdB,
       },
     });
 
-    // 分配端点B的shortId
-    await globalShortIdService.allocate('CableEndpoint', endpointB.id, shortIdB);
-    await prisma.cableEndpoint.update({
-      where: { id: endpointB.id },
-      data: { shortId: shortIdB },
+    // 标记shortIdB为已使用
+    await prisma.shortIdPool.update({
+      where: { shortId: shortIdB },
+      data: {
+        status: 'USED',
+        usedAt: new Date(),
+      },
     });
 
-    // 7. 返回完整的线缆信息（包含端点）
+    // 6. 返回完整的线缆信息（包含端点）
     return await prisma.cable.findUnique({
       where: { id: cable.id },
       include: {

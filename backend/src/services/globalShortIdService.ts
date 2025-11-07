@@ -1,19 +1,16 @@
 /**
  * 全局 ShortID 分配服务
- * 确保所有实体（DataCenter、Room、Cabinet、Device、Port、Cable等）的 shortId 全局唯一
+ * 只为直接调用的实体资产（Room、Cabinet、Panel、Port）分配 shortId
+ * 其他实体（DataCenter、Device、Cable）可通过有shortId的对象找到，不需要独立shortId
  */
 
 import prisma from '../utils/prisma';
 
 export type EntityType =
-  | 'DataCenter'
   | 'Room'
   | 'Cabinet'
-  | 'Device'
-  | 'Port'
-  | 'Cable'
   | 'Panel'
-  | 'CableEndpoint';
+  | 'Port';
 
 class GlobalShortIdService {
   /**

@@ -498,10 +498,8 @@ function CableTopologyContent() {
 
       // 创建边
       if (portA?.panelId && portB?.panelId) {
-        // 生成边的标签：优先使用 label，否则使用 shortId（E-xxxxx格式），最后使用 type
-        const edgeLabel = cable.label ||
-                         (cable.shortId ? ShortIdFormatter.toDisplayFormat(cable.shortId) : null) ||
-                         `${cable.type}`;
+        // 生成边的标签：优先使用 label，否则使用 type
+        const edgeLabel = cable.label || `${cable.type}`;
 
         const edge = {
           id: cable.id || `edge-${portA.id}-${portB.id}`,
@@ -1874,11 +1872,6 @@ function CableDetailModal({
               <Descriptions.Item label="线缆标签">
                 {cable?.label || '未命名'}
               </Descriptions.Item>
-              {cable?.shortId && (
-                <Descriptions.Item label="ShortID">
-                  <Text code>{ShortIdFormatter.toDisplayFormat(cable.shortId)}</Text>
-                </Descriptions.Item>
-              )}
               <Descriptions.Item label="线缆类型">
                 <Tag color={cableTypeColors[cable?.type]}>{cable?.type || '-'}</Tag>
               </Descriptions.Item>

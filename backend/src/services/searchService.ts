@@ -11,7 +11,7 @@ import prisma from '../utils/prisma';
 export interface SearchResult {
   type: 'DataCenter' | 'Room' | 'Cabinet' | 'Device' | 'Cable' | 'Panel' | 'Port';
   id: string;
-  shortId: number;
+  shortId?: number; // shortId为可选，因为不是所有实体都有shortId
   name?: string;
   label?: string;
   description?: string;
@@ -26,13 +26,12 @@ class SearchService {
     const results: SearchResult[] = [];
 
     try {
-      // 搜索数据中心
+      // 搜索数据中心（无shortId）
       const dataCenters = await dataCenterService.searchDataCenters(query);
       results.push(
         ...dataCenters.map((dc) => ({
           type: 'DataCenter' as const,
           id: dc.id,
-          shortId: dc.shortId,
           name: dc.name,
           description: dc.location || undefined,
           metadata: { location: dc.location },
@@ -69,13 +68,12 @@ class SearchService {
         }))
       );
 
-      // 搜索设备
+      // 搜索设备（无shortId）
       const devices = await deviceService.searchDevices(query);
       results.push(
         ...devices.map((device) => ({
           type: 'Device' as const,
           id: device.id,
-          shortId: device.shortId,
           name: device.name,
           description: `${device.type}${device.model ? ` - ${device.model}` : ''}`,
           metadata: {
@@ -87,13 +85,12 @@ class SearchService {
         }))
       );
 
-      // 搜索线缆
+      // 搜索线缆（无shortId）
       const cables = await cableService.searchCables(query);
       results.push(
         ...cables.map((cable) => ({
           type: 'Cable' as const,
           id: cable.id,
-          shortId: cable.shortId,
           label: cable.label || undefined,
           description: `${cable.type}${cable.color ? ` - ${cable.color}` : ''}`,
           metadata: {
@@ -111,12 +108,11 @@ class SearchService {
         ...panels.map((panel) => ({
           type: 'Panel' as const,
           id: panel.id,
-          shortId: panel.shortId,
+          shortId: panel.shortId ?? undefined,
           name: panel.name,
           description: panel.type,
           metadata: {
             type: panel.type,
-            portCount: panel.portCount,
             deviceId: panel.deviceId,
             cabinetId: (panel as any).device?.cabinetId,
           },
@@ -130,10 +126,11 @@ class SearchService {
           type: 'Port' as const,
           id: port.id,
           shortId: port.shortId,
-          name: port.name,
-          description: `${port.type} - ${port.status}`,
+          name: `Port ${port.number}`,
+          description: `${port.portType || 'Unknown'} - ${port.status}`,
           metadata: {
-            type: port.type,
+            number: port.number,
+            portType: port.portType,
             status: port.status,
             position: port.position,
             panelId: port.panelId,
@@ -150,7 +147,7 @@ class SearchService {
 
   /**
    * 根据 shortId 查找实体
-   * 使用全局分配表快速定位实体类型和ID，然后获取完整数据
+   * 只支持有shortId的实体：Room、Cabinet、Panel、Port
    */
   async findByShortId(shortId: number): Promise<SearchResult | null> {
     try {
@@ -165,21 +162,6 @@ class SearchService {
 
       // 2. 根据实体类型获取完整数据
       switch (entityType) {
-        case 'DataCenter': {
-          const dataCenter = await prisma.dataCenter.findUnique({
-            where: { id: entityId },
-          });
-          if (!dataCenter) return null;
-          return {
-            type: 'DataCenter',
-            id: dataCenter.id,
-            shortId: dataCenter.shortId,
-            name: dataCenter.name,
-            description: dataCenter.location || undefined,
-            metadata: dataCenter,
-          };
-        }
-
         case 'Room': {
           const room = await prisma.room.findUnique({
             where: { id: entityId },
@@ -210,36 +192,6 @@ class SearchService {
           };
         }
 
-        case 'Device': {
-          const device = await prisma.device.findUnique({
-            where: { id: entityId },
-          });
-          if (!device) return null;
-          return {
-            type: 'Device',
-            id: device.id,
-            shortId: device.shortId,
-            name: device.name,
-            description: `${device.type}${device.model ? ` - ${device.model}` : ''}`,
-            metadata: device,
-          };
-        }
-
-        case 'Cable': {
-          const cable = await prisma.cable.findUnique({
-            where: { id: entityId },
-          });
-          if (!cable) return null;
-          return {
-            type: 'Cable',
-            id: cable.id,
-            shortId: cable.shortId,
-            label: cable.label || undefined,
-            description: `${cable.type}${cable.color ? ` - ${cable.color}` : ''}`,
-            metadata: cable,
-          };
-        }
-
         case 'Panel': {
           const panel = await prisma.panel.findUnique({
             where: { id: entityId },
@@ -267,29 +219,6 @@ class SearchService {
             name: `Port ${port.number}`,
             description: `${port.portType || 'Unknown'} - ${port.status}`,
             metadata: port,
-          };
-        }
-
-        case 'CableEndpoint': {
-          const endpoint = await prisma.cableEndpoint.findUnique({
-            where: { id: entityId },
-            include: {
-              cable: true,
-            },
-          });
-          if (!endpoint) return null;
-          return {
-            type: 'Cable',
-            id: endpoint.cable.id,
-            shortId: endpoint.cable.shortId,
-            name: `Cable ${endpoint.cable.label || endpoint.cable.type}`,
-            description: `Endpoint ${endpoint.endType} - ${endpoint.cable.type}`,
-            metadata: {
-              ...endpoint.cable,
-              endpointId: endpoint.id,
-              endpointShortId: endpoint.shortId,
-              endType: endpoint.endType,
-            },
           };
         }
 
