@@ -18,3 +18,17 @@
 .highlighted-row:hover {
   background-color: rgba(24, 144, 255, 0.05);
 }
+
+/* 全高度 Tabs 样式 */
+.full-height-tabs .ant-tabs-content-holder {
+  overflow: hidden;
+}
+
+.full-height-tabs .ant-tabs-content {
+  height: 100%;
+}
+
+.full-height-tabs .ant-tabs-tabpane {
+  height: 100%;
+  overflow: hidden;
+}

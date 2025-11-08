@@ -42,7 +42,8 @@ function App() {
               <Route path="/cabinets" element={<CabinetList />} />
               <Route path="/devices" element={<DeviceList />} />
               <Route path="/panels" element={<PanelList />} />
-              <Route path="/ports" element={<PortManagementPage />} />
+              {/* 接口管理页面已废弃 */}
+              {/* <Route path="/ports" element={<PortManagementPage />} /> */}
               <Route path="/port-detail" element={<PortDetailView />} />
               <Route path="/topology" element={<CableTopology />} />
               <Route path="/cable-manual-inventory" element={<CableManualInventory />} />

@@ -85,7 +85,7 @@
   border-radius: 8px;
   padding: 20px;
   box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.05);
-  max-height: 80vh;
+  max-height: calc(100vh - 450px);
   overflow-y: auto;
   overflow-x: hidden;
 }

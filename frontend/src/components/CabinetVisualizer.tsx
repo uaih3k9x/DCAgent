@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { forwardRef, useImperativeHandle, useRef } from 'react';
 import { Card, Typography, Tag, Tooltip, Space } from 'antd';
 import {
   CloudServerOutlined,
@@ -83,7 +83,18 @@ interface CabinetVisualizerProps {
   onDeviceDrop?: (deviceId: string, newPosition: number) => void;
 }
 
-export const CabinetVisualizer: React.FC<CabinetVisualizerProps> = ({
+// 暴露给父组件的实例方法和属性
+export interface CabinetVisualizerHandle {
+  getActualHeight: () => number;
+  getContainerHeight: () => number;
+  getScrollContainer: () => HTMLDivElement | null;
+  getScrollTop: () => number;
+  getScrollHeight: () => number;
+  getClientHeight: () => number;
+  getSVGVisibleHeight: () => number;
+}
+
+export const CabinetVisualizer = forwardRef<CabinetVisualizerHandle, CabinetVisualizerProps>(({
   cabinet,
   devices,
   viewMode = '2d', // 默认使用2D视图
@@ -91,7 +102,50 @@ export const CabinetVisualizer: React.FC<CabinetVisualizerProps> = ({
   onDeviceEdit,
   onDeviceDelete,
   onDeviceDrop,
-}) => {
+}, ref) => {
+  // 内部 ref 用于获取实际的 DOM 元素
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // 暴露方法给父组件
+  useImperativeHandle(ref, () => ({
+    getActualHeight: () => {
+      // 返回机柜实际渲染高度（U位数 * U高度）
+      return cabinet.height * U_HEIGHT;
+    },
+    getContainerHeight: () => {
+      return containerRef.current?.clientHeight || 0;
+    },
+    getScrollContainer: () => {
+      return containerRef.current;
+    },
+    getScrollTop: () => {
+      return containerRef.current?.scrollTop || 0;
+    },
+    getScrollHeight: () => {
+      return containerRef.current?.scrollHeight || 0;
+    },
+    getClientHeight: () => {
+      return containerRef.current?.clientHeight || 0;
+    },
+    getSVGVisibleHeight: () => {
+      // 获取 SVG 元素在滚动容器中的实际可见高度
+      if (!containerRef.current) return 0;
+
+      const svg = containerRef.current.querySelector('svg');
+      if (!svg) return 0;
+
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const svgRect = svg.getBoundingClientRect();
+
+      // 计算 SVG 在容器中的可见区域高度
+      const visibleTop = Math.max(svgRect.top, containerRect.top);
+      const visibleBottom = Math.min(svgRect.bottom, containerRect.bottom);
+      const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+
+      return visibleHeight;
+    },
+  }));
+
   // 创建U位数组（从顶部开始）
   const createUnits = () => {
     const units = [];
@@ -544,7 +598,7 @@ export const CabinetVisualizer: React.FC<CabinetVisualizerProps> = ({
           )}
 
           {/* 机柜SVG视图 - 根据viewMode渲染不同视图 */}
-          <div className={`cabinet-svg-container cabinet-svg-container--${viewMode}`}>
+          <div ref={containerRef} className={`cabinet-svg-container cabinet-svg-container--${viewMode}`}>
             {viewMode === '3d' ? render3DView() : render2DView()}
           </div>
         </div>
@@ -567,4 +621,4 @@ export const CabinetVisualizer: React.FC<CabinetVisualizerProps> = ({
       </Card>
     </div>
   );
-};
+});

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useLocation } from 'react-router-dom';
 import './CabinetList.css';
 import {
@@ -50,7 +50,8 @@ import { deviceService } from '@/services/deviceService';
 import { panelService } from '@/services/panelService';
 import { portService } from '@/services/portService';
 import { panelTemplateService } from '@/services/panelTemplateService';
-import { CabinetVisualizer, ViewMode } from '@/components/CabinetVisualizer';
+import { CabinetVisualizer, ViewMode, CabinetVisualizerHandle } from '@/components/CabinetVisualizer';
+import { CabinetThumbnail } from '@/components/CabinetThumbnail';
 import { PanelVisualizer } from '@/components/PanelVisualizer';
 import { DevicePanelEditor } from '@/components/DevicePanelEditor';
 import { generatePortLayout, sortPortsByNumber } from '@/utils/panelLayoutGenerator';
@@ -120,6 +121,11 @@ export default function CabinetList() {
     const state = location.state as any;
     return state?.selectedId || null;
   });
+
+  // 主视图引用（用于传递给 CabinetThumbnail 组件）
+  const mainViewRef = useRef<CabinetVisualizerHandle>(null);
+  // Content 容器引用（用于获取可见区域高度）
+  const contentContainerRef = useRef<HTMLDivElement>(null);
 
   // 加载所有相关数据
   const loadAllData = async () => {
@@ -210,6 +216,7 @@ export default function CabinetList() {
       }
     }
   }, [location.state, cabinets]);
+
 
   // 构建级联选择器选项
   const getCascaderOptions = (): CascaderOption[] => {
@@ -661,15 +668,31 @@ export default function CabinetList() {
   ];
 
   return (
-    <div>
-      <Title level={2}>
-        <InboxOutlined /> 机柜管理
-      </Title>
-      <p style={{ color: '#8c8c8c', marginBottom: 24 }}>
-        管理机房内的所有机柜和U位，支持2D/3D可视化视图
-      </p>
+    <div style={{ height: 'calc(100vh - 192px)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div style={{
+        flexShrink: 0,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <Title level={2} style={{ margin: 0 }}>
+            <InboxOutlined /> 机柜管理
+          </Title>
+          <Text type="secondary" style={{ fontSize: 14 }}>
+            管理机房内的所有机柜和U位，支持2D/3D可视化视图
+          </Text>
+        </div>
+      </div>
 
-      <Tabs activeKey={activeTab} onChange={setActiveTab} type="card">
+      <Tabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        type="card"
+        style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+        className="full-height-tabs"
+      >
         <TabPane tab={<span><InboxOutlined /> 机柜列表</span>} key="list">
           <Card>
             <Space style={{ marginBottom: 16, width: '100%', justifyContent: 'space-between' }}>
@@ -724,13 +747,9 @@ export default function CabinetList() {
         </TabPane>
 
         <TabPane tab={<span><EyeOutlined /> 可视化视图</span>} key="visual">
-          <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text type="secondary">
-              {viewMode === '3d' ? '2.5D立体视图展示机柜U位分布和设备布局' : '2D前面板视图展示机柜设备详情'}
-            </Text>
-            <Space>
-              <Text type="secondary">视图模式：</Text>
-              <Button.Group>
+          <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ flexShrink: 0, marginBottom: 12, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+              <Button.Group size="small">
                 <Tooltip title="2D前面板视图">
                   <Button
                     type={viewMode === '2d' ? 'primary' : 'default'}
@@ -750,273 +769,286 @@ export default function CabinetList() {
                   </Button>
                 </Tooltip>
               </Button.Group>
-            </Space>
-          </div>
+            </div>
 
-          <Layout style={{ background: '#fff', minHeight: 'calc(100vh - 300px)' }}>
-            {/* 左侧：机柜列表 */}
+            <Layout style={{ background: '#fff', flex: 1, overflow: 'hidden' }}>
+            {/* 左侧：机柜导航器 */}
             <Sider
-              width={320}
+              width={260}
               style={{
                 background: '#fafafa',
                 borderRight: '1px solid #e8e8e8',
                 overflowY: 'auto',
-                maxHeight: 'calc(100vh - 300px)',
+                height: '100%',
               }}
             >
               <div style={{ padding: 16 }}>
-                <div style={{ marginBottom: 16 }}>
-                  <Button
-                    type="primary"
-                    icon={<PlusOutlined />}
-                    onClick={() => handleOpenModal()}
-                    block
-                  >
-                    新建机柜
-                  </Button>
+                {/* 机柜选择器 */}
+                <div style={{ marginBottom: 16 }} title="机柜选择器容器">
+                  <Text type="secondary" style={{ fontSize: 12, marginBottom: 4, display: 'block' }}>
+                    选择机柜
+                  </Text>
+                  <Select
+                    showSearch
+                    style={{ width: '100%' }}
+                    placeholder="选择或搜索机柜"
+                    value={selectedCabinet?.id}
+                    onChange={(cabinetId) => {
+                      const cabinet = cabinets.find(c => c.id === cabinetId);
+                      if (cabinet) handleSelectCabinet(cabinet);
+                    }}
+                    optionFilterProp="children"
+                    filterOption={(input, option) =>
+                      (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                    }
+                    options={cabinets.map(cabinet => {
+                      const room = rooms.find(r => r.id === cabinet.roomId);
+                      const dc = dataCenters.find(d => d.id === room?.dataCenterId);
+                      return {
+                        value: cabinet.id,
+                        label: `${dc?.name || ''} - ${room?.name || ''} - ${cabinet.name}`,
+                      };
+                    })}
+                  />
                 </div>
 
-                {cabinetsByRoom.length === 0 ? (
-                  <Empty description="暂无机柜" />
-                ) : (
-                  <Collapse ghost defaultActiveKey={cabinetsByRoom.map(({ room }) => room.id)}>
-                    {cabinetsByRoom.map(({ room, cabinets: roomCabinets }) => (
-                      <CollapsePanel
-                        key={room.id}
-                        header={
-                          <Space>
-                            <Text strong>{room.name}</Text>
-                            <Tag color="blue">{roomCabinets.length} 个机柜</Tag>
-                          </Space>
-                        }
-                      >
-                        {roomCabinets.length === 0 ? (
-                          <Empty description="暂无机柜" />
-                        ) : (
-                          <List
-                            size="small"
-                            dataSource={roomCabinets}
-                            renderItem={(cabinet) => {
-                              const stats = getCabinetStats(cabinet);
-                              const isSelected = selectedCabinet?.id === cabinet.id;
-
-                              return (
-                                <List.Item
-                                  style={{
-                                    cursor: 'pointer',
-                                    padding: '12px 16px',
-                                    borderRadius: 4,
-                                    border: isSelected ? '2px solid #1890ff' : '1px solid transparent',
-                                    backgroundColor: isSelected ? '#e6f7ff' : '#fff',
-                                    marginBottom: 8,
-                                  }}
-                                  onClick={() => handleSelectCabinet(cabinet)}
+                {selectedCabinet ? (
+                  <>
+                    {/* 机柜统计信息 */}
+                    <div style={{ marginBottom: 16 }}>
+                      {(() => {
+                        const stats = getCabinetStats(selectedCabinet);
+                        return (
+                          <>
+                            {/* 机柜名称和基本信息 */}
+                            <div style={{
+                              padding: '8px 12px',
+                              background: '#fafafa',
+                              borderRadius: 4,
+                              marginBottom: 8
+                            }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, color: '#262626' }}>
+                                {selectedCabinet.name}
+                              </div>
+                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                <Tag color="blue" style={{ margin: 0, fontSize: 11 }}>
+                                  {selectedCabinet.height}U
+                                </Tag>
+                                <Text type="secondary" style={{ fontSize: 11 }}>
+                                  {stats.totalDevices}台设备
+                                </Text>
+                                <Text style={{ fontSize: 11 }}>
+                                  {stats.usedUnits}/{selectedCabinet.height}U
+                                </Text>
+                                <Tag
+                                  color={
+                                    stats.utilization > 80
+                                      ? 'red'
+                                      : stats.utilization > 60
+                                      ? 'orange'
+                                      : 'green'
+                                  }
+                                  style={{ margin: 0, fontSize: 11 }}
                                 >
-                                  <div style={{ width: '100%' }}>
-                                    <div style={{ marginBottom: 8 }}>
-                                      <Space>
-                                        <Text strong>{cabinet.name}</Text>
-                                        <Tag color="blue">{cabinet.height}U</Tag>
-                                        <Tag
-                                          color={
-                                            stats.utilization > 80
-                                              ? 'red'
-                                              : stats.utilization > 60
-                                              ? 'orange'
-                                              : 'green'
-                                          }
-                                        >
-                                          {stats.utilization}%
-                                        </Tag>
-                                      </Space>
-                                    </div>
+                                  {stats.utilization}%
+                                </Tag>
+                              </div>
+                            </div>
 
-                                    <Row gutter={8} style={{ fontSize: 12 }}>
-                                      <Col span={8}>
-                                        <Statistic
-                                          title="设备数"
-                                          value={stats.totalDevices}
-                                          valueStyle={{ fontSize: 12 }}
-                                        />
-                                      </Col>
-                                      <Col span={8}>
-                                        <Statistic
-                                          title="已用U"
-                                          value={stats.usedUnits}
-                                          suffix={`/ ${cabinet.height}`}
-                                          valueStyle={{ fontSize: 12 }}
-                                        />
-                                      </Col>
-                                      <Col span={8}>
-                                        <Statistic
-                                          title="可用U"
-                                          value={stats.availableUnits}
-                                          valueStyle={{ fontSize: 12 }}
-                                        />
-                                      </Col>
-                                    </Row>
+                            {/* 操作按钮 */}
+                            <Space direction="vertical" style={{ width: '100%' }} size={4}>
+                              <Button
+                                type="primary"
+                                icon={<PlusOutlined />}
+                                onClick={() => handleOpenDeviceModal()}
+                                block
+                                size="small"
+                              >
+                                添加设备
+                              </Button>
+                              <Button
+                                icon={<EditOutlined />}
+                                onClick={() => handleOpenModal(selectedCabinet)}
+                                block
+                                size="small"
+                              >
+                                编辑机柜
+                              </Button>
+                            </Space>
+                          </>
+                        );
+                      })()}
+                    </div>
 
-                                    <div style={{ marginTop: 8 }}>
-                                      <Space split={<span>|</span>}>
-                                        <Button
-                                          type="link"
-                                          size="small"
-                                          icon={<PlusOutlined />}
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setSelectedCabinet(cabinet);
-                                            handleOpenDeviceModal();
-                                          }}
-                                        >
-                                          添加设备
-                                        </Button>
-                                        <Button
-                                          type="link"
-                                          size="small"
-                                          icon={<EditOutlined />}
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleOpenModal(cabinet);
-                                          }}
-                                        >
-                                          编辑
-                                        </Button>
-                                      </Space>
-                                    </div>
-                                  </div>
-                                </List.Item>
-                              );
+                    {/* 设备列表 */}
+                    <Card
+                      title="设备列表"
+                      size="small"
+                      bodyStyle={{ padding: '8px 0' }}
+                    >
+                      <List
+                        dataSource={getCabinetDevices(selectedCabinet.id)}
+                        size="small"
+                        split={false}
+                        renderItem={(device) => (
+                          <List.Item
+                            style={{
+                              padding: '8px 12px',
+                              borderBottom: '1px solid #f0f0f0',
+                              display: 'block',
                             }}
-                          />
+                          >
+                            <div style={{ marginBottom: 6 }}>
+                              <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                marginBottom: 4,
+                              }}>
+                                <Text
+                                  strong
+                                  style={{
+                                    fontSize: 12,
+                                    flex: 1,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                  title={device.name}
+                                >
+                                  {device.name}
+                                </Text>
+                                <Tag
+                                  color={deviceTypeMap[device.type].color}
+                                  style={{
+                                    fontSize: 10,
+                                    margin: 0,
+                                    padding: '0 4px',
+                                    lineHeight: '16px',
+                                  }}
+                                >
+                                  {deviceTypeMap[device.type].label}
+                                </Tag>
+                              </div>
+                              <Text type="secondary" style={{ fontSize: 10 }}>
+                                U{device.uPosition} ({device.uHeight}U)
+                              </Text>
+                            </div>
+                            <Space size={4} wrap>
+                              <Button
+                                type="text"
+                                size="small"
+                                icon={<EditOutlined />}
+                                onClick={() => handleOpenDeviceModal(device)}
+                                style={{ padding: '0 4px', height: 20 }}
+                              />
+                              <Button
+                                type="text"
+                                size="small"
+                                icon={<SettingOutlined />}
+                                onClick={() => handleOpenPanelEditor(undefined, device)}
+                                style={{ padding: '0 4px', height: 20 }}
+                              />
+                              <Button
+                                type="text"
+                                size="small"
+                                icon={<SendOutlined />}
+                                onClick={() => handleOpenDeviceTransfer(device)}
+                                style={{ padding: '0 4px', height: 20 }}
+                              />
+                              <Button
+                                type="text"
+                                size="small"
+                                icon={<CopyOutlined />}
+                                onClick={() => handleOpenDeviceCopy(device)}
+                                style={{ padding: '0 4px', height: 20 }}
+                              />
+                              <Button
+                                type="text"
+                                size="small"
+                                danger
+                                icon={<DeleteOutlined />}
+                                onClick={() => handleDeleteDevice(device)}
+                                style={{ padding: '0 4px', height: 20 }}
+                              />
+                            </Space>
+                          </List.Item>
                         )}
-                      </CollapsePanel>
-                    ))}
-                  </Collapse>
+                      />
+                    </Card>
+                  </>
+                ) : (
+                  <Empty description="请选择一个机柜" />
                 )}
               </div>
             </Sider>
 
-            {/* 右侧：机柜可视化 */}
-            <Content style={{ padding: 24 }}>
+            {/* 中间：机柜可视化 */}
+            <Content
+              ref={contentContainerRef}
+              style={{
+                padding: 24,
+                height: '100%',
+                overflow: 'hidden', // 【修改点】从 overflowY: 'auto' 改为 overflow: 'hidden'，禁止主视图滚动
+              }}
+              title="机柜可视化主视图区域"
+            >
               {selectedCabinet ? (
-                <div>
-                  <div style={{ marginBottom: 16 }}>
-                    <Space>
-                      <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={() => handleOpenDeviceModal()}
-                      >
-                        添加设备
-                      </Button>
-                      <Button
-                        icon={<EditOutlined />}
-                        onClick={() => handleOpenModal(selectedCabinet)}
-                      >
-                        编辑机柜
-                      </Button>
-                    </Space>
-                  </div>
-
-                  <CabinetVisualizer
-                    cabinet={selectedCabinet}
-                    devices={getCabinetDevices(selectedCabinet.id)}
-                    viewMode={viewMode}
-                    onDeviceClick={handleViewDevicePanels}
-                    onDeviceEdit={handleOpenDeviceModal}
-                    onDeviceDelete={handleDeleteDevice}
-                  />
-
-                  <Divider />
-
-                  {/* 设备列表 */}
-                  <Card title="设备列表" size="small">
-                    <List
-                      dataSource={getCabinetDevices(selectedCabinet.id)}
-                      renderItem={(device) => (
-                        <List.Item
-                          actions={[
-                            <Button
-                              type="link"
-                              size="small"
-                              icon={<EditOutlined />}
-                              onClick={() => handleOpenDeviceModal(device)}
-                              key="edit"
-                            >
-                              编辑
-                            </Button>,
-                            <Button
-                              type="link"
-                              size="small"
-                              icon={<SettingOutlined />}
-                              onClick={() => handleOpenPanelEditor(undefined, device)}
-                              key="panels"
-                            >
-                              面板
-                            </Button>,
-                            <Button
-                              type="link"
-                              size="small"
-                              icon={<SendOutlined />}
-                              onClick={() => handleOpenDeviceTransfer(device)}
-                              key="transfer"
-                            >
-                              发送
-                            </Button>,
-                            <Button
-                              type="link"
-                              size="small"
-                              icon={<CopyOutlined />}
-                              onClick={() => handleOpenDeviceCopy(device)}
-                              key="copy"
-                            >
-                              复制
-                            </Button>,
-                            <Button
-                              type="link"
-                              size="small"
-                              danger
-                              icon={<DeleteOutlined />}
-                              onClick={() => handleDeleteDevice(device)}
-                              key="delete"
-                            >
-                              删除
-                            </Button>,
-                          ]}
-                        >
-                          <List.Item.Meta
-                            title={
-                              <Space>
-                                <Text strong>{device.name}</Text>
-                                <Tag color={deviceTypeMap[device.type].color}>
-                                  {deviceTypeMap[device.type].label}
-                                </Tag>
-                              </Space>
-                            }
-                            description={
-                              <Space size={16}>
-                                <Text type="secondary">
-                                  位置: U{device.uPosition} (高{device.uHeight}U)
-                                </Text>
-                                {device.model && (
-                                  <Text type="secondary">型号: {device.model}</Text>
-                                )}
-                                {device.serialNo && (
-                                  <Text type="secondary">SN: {device.serialNo}</Text>
-                                )}
-                              </Space>
-                            }
-                          />
-                        </List.Item>
-                      )}
-                    />
-                  </Card>
-                </div>
+                <CabinetVisualizer
+                  ref={mainViewRef}
+                  cabinet={selectedCabinet}
+                  devices={getCabinetDevices(selectedCabinet.id)}
+                  viewMode={viewMode}
+                  onDeviceClick={handleViewDevicePanels}
+                  onDeviceEdit={handleOpenDeviceModal}
+                  onDeviceDelete={handleDeleteDevice}
+                />
               ) : (
                 <Empty description="请从左侧选择一个机柜进行可视化展示" style={{ marginTop: 100 }} />
               )}
             </Content>
+
+            {/* 右侧：机柜全览 */}
+            <Sider
+              width={260}
+              style={{
+                background: '#fafafa',
+                borderLeft: '1px solid #e8e8e8',
+                overflow: 'hidden',
+                height: '100%',
+              }}
+            >
+              <div style={{ padding: 16 }}>
+                {selectedCabinet ? (
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: '#8c8c8c',
+                        marginBottom: 8,
+                        paddingLeft: 4,
+                      }}
+                      title="机柜全览标题"
+                    >
+                      <InboxOutlined style={{ marginRight: 4 }} />
+                      机柜全览
+                    </div>
+                    <CabinetThumbnail
+                      cabinet={selectedCabinet}
+                      devices={getCabinetDevices(selectedCabinet.id)}
+                      viewMode={viewMode}
+                      containerHeight={600}
+                      mainViewRef={mainViewRef}
+                      contentContainerRef={contentContainerRef}
+                    />
+                  </div>
+                ) : (
+                  <Empty description="请选择一个机柜" />
+                )}
+              </div>
+            </Sider>
           </Layout>
+          </div>
         </TabPane>
       </Tabs>
 
