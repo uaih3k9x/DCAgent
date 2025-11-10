@@ -353,7 +353,29 @@ class CableService {
    * 查询面板的所有连接
    */
   async getPanelConnections(panelId: string) {
-    return await cableGraphService.findPanelConnections(panelId);
+    const connections = await cableGraphService.findPanelConnections(panelId);
+
+    // 为每个连接补充完整的cable信息（包括endpoints的shortId）
+    const enrichedConnections = await Promise.all(
+      connections.map(async (conn) => {
+        const cableId = conn.cable.id;
+
+        // 从PostgreSQL查询完整的cable信息，包括endpoints
+        const fullCable = await prisma.cable.findUnique({
+          where: { id: cableId },
+          include: {
+            endpoints: true, // 包含endpoint的shortId
+          },
+        });
+
+        return {
+          ...conn,
+          cable: fullCable || conn.cable, // 使用完整的cable数据替换
+        };
+      })
+    );
+
+    return enrichedConnections;
   }
 
   /**

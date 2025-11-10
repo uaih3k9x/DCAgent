@@ -1831,12 +1831,19 @@ function CableDetailModal({
         <Card size="small" title={t('manualInventory.portA')} type="inner">
           <Descriptions column={1} size="small" bordered>
             <Descriptions.Item label={t('fields.endpoints')}>
-              <Tag color="blue">{portA?.label || portA?.number || '-'}</Tag>
-              {portA?.portType && (
-                <Text type="secondary" style={{ marginLeft: 8 }}>
-                  {portA.portType}
-                </Text>
-              )}
+              <Space>
+                <Tag color="blue">{portA?.label || portA?.number || '-'}</Tag>
+                {portA?.portType && (
+                  <Text type="secondary">{portA.portType}</Text>
+                )}
+                {cable?.endpoints?.find((e: any) => e.endType === 'A')?.shortId && (
+                  <Text code>
+                    插头: {ShortIdFormatter.toDisplayFormat(
+                      cable.endpoints.find((e: any) => e.endType === 'A').shortId
+                    )}
+                  </Text>
+                )}
+              </Space>
             </Descriptions.Item>
             {panelA && (
               <Descriptions.Item label={t('fields.panel')}>
@@ -1871,12 +1878,19 @@ function CableDetailModal({
         <Card size="small" title={t('manualInventory.portB')} type="inner">
           <Descriptions column={1} size="small" bordered>
             <Descriptions.Item label={t('fields.endpoints')}>
-              <Tag color="green">{portB?.label || portB?.number || '-'}</Tag>
-              {portB?.portType && (
-                <Text type="secondary" style={{ marginLeft: 8 }}>
-                  {portB.portType}
-                </Text>
-              )}
+              <Space>
+                <Tag color="green">{portB?.label || portB?.number || '-'}</Tag>
+                {portB?.portType && (
+                  <Text type="secondary">{portB.portType}</Text>
+                )}
+                {cable?.endpoints?.find((e: any) => e.endType === 'B')?.shortId && (
+                  <Text code>
+                    插头: {ShortIdFormatter.toDisplayFormat(
+                      cable.endpoints.find((e: any) => e.endType === 'B').shortId
+                    )}
+                  </Text>
+                )}
+              </Space>
             </Descriptions.Item>
             {panelB && (
               <Descriptions.Item label={t('fields.panel')}>

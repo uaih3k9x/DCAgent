@@ -210,6 +210,7 @@ export interface Cable {
 
 export interface CableEndpoint {
   id: string;
+  shortId?: number; // 端点标签的shortID（用于扫码识别线缆）
   cableId: string;
   cable?: Cable;
   portId: string;
