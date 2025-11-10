@@ -49,23 +49,29 @@ export interface UpdatePanelDto {
 
 class PanelService {
   async createPanel(data: CreatePanelDto) {
-    // 验证shortId是否可用
-    const existingCheck = await shortIdPoolService.checkShortIdExists(data.shortId);
-    if (existingCheck.exists) {
-      throw new Error(`ShortID ${data.shortId} 已被占用: ${existingCheck.usedBy === 'pool' ? '在标签池中' : '已绑定到实体'}`);
-    }
+    // 使用 shortIdPoolService 分配 shortId
+    const allocatedShortId = await shortIdPoolService.allocateShortId('PANEL', '', data.shortId);
+
+    // 从data中提取shortId，避免覆盖allocatedShortId
+    const { shortId: _, ...panelData } = data;
 
     // 创建面板
     const panel = await prisma.panel.create({
-      data,
+      data: {
+        ...panelData,
+        shortId: allocatedShortId,
+      },
       include: {
         device: true,
         ports: true,
       },
     });
 
-    // 绑定shortID到池中
-    await shortIdPoolService.bindShortIdToEntity(data.shortId, 'PANEL', panel.id);
+    // 更新 shortIdPool 中的 entityId
+    await prisma.shortIdPool.updateMany({
+      where: { shortId: allocatedShortId },
+      data: { entityId: panel.id },
+    });
 
     return panel;
   }

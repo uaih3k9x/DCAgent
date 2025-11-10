@@ -80,10 +80,13 @@ class RoomService {
     // 使用 shortIdPoolService 分配 shortId
     const allocatedShortId = await shortIdPoolService.allocateShortId('ROOM', '', data.shortId);
 
+    // 从data中提取shortId，避免覆盖allocatedShortId
+    const { shortId: _, ...roomData } = data;
+
     // 创建机房
     const room = await prisma.room.create({
       data: {
-        ...data,
+        ...roomData,
         shortId: allocatedShortId,
       },
       include: {

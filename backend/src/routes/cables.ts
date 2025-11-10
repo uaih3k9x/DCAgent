@@ -61,6 +61,16 @@ const checkMultipleShortIdsSchema = z.object({
   shortIds: z.array(z.number().int().positive()),
 });
 
+const connectSinglePortSchema = z.object({
+  portId: z.string().uuid('Invalid port ID'),
+  shortId: z.number().int().positive('ShortID must be a positive integer'),
+  label: z.string().optional(),
+  type: z.enum(['CAT5E', 'CAT6', 'CAT6A', 'CAT7', 'FIBER_SM', 'FIBER_MM', 'QSFP_TO_SFP', 'QSFP_TO_QSFP', 'SFP_TO_SFP', 'POWER', 'OTHER']).optional(),
+  length: z.number().positive().optional(),
+  color: z.string().optional(),
+  notes: z.string().optional(),
+});
+
 // GET /api/v1/cables - 获取列表
 router.get('/', async (req: Request, res: Response) => {
   try {
@@ -293,6 +303,24 @@ router.post('/check-multiple-shortids', async (req: Request, res: Response) => {
     }
     console.error('Error checking multiple shortIds:', error);
     res.status(500).json({ error: 'Failed to check multiple shortIds' });
+  }
+});
+
+// POST /api/v1/cables/connect-single-port - 单端连接
+router.post('/connect-single-port', async (req: Request, res: Response) => {
+  try {
+    const validatedData = connectSinglePortSchema.parse(req.body);
+    const result = await cableService.connectSinglePort(validatedData);
+    res.status(201).json(result);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: error.errors });
+    }
+    if (error instanceof Error) {
+      return res.status(400).json({ error: error.message });
+    }
+    console.error('Error connecting single port:', error);
+    res.status(500).json({ error: 'Failed to connect single port' });
   }
 });
 

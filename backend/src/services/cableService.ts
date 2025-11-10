@@ -34,6 +34,16 @@ export interface ManualInventoryCableDto {
   notes?: string;
 }
 
+export interface ConnectSinglePortDto {
+  portId: string;      // 要连接的端口ID
+  shortId: number;     // 插头的shortID
+  label?: string;      // 线缆标签（可选）
+  type?: CableType;    // 线缆类型（可选，默认根据端口类型推断）
+  length?: number;     // 长度（可选）
+  color?: string;      // 颜色（可选）
+  notes?: string;      // 备注（可选）
+}
+
 class CableService {
   /**
    * 创建线缆并建立连接关系
@@ -469,6 +479,226 @@ class CableService {
 
 
   /**
+   * 单端连接：连接一个端口到插头
+   * 如果插头已经属于某条线缆，则更新该端点连接到指定端口
+   * 如果插头是新的，则创建新线缆，只创建一个端点
+   */
+  async connectSinglePort(data: ConnectSinglePortDto) {
+    const { portId, shortId, ...cableData } = data;
+
+    // 1. 检查端口是否存在
+    const port = await prisma.port.findUnique({
+      where: { id: portId },
+      include: {
+        panel: {
+          include: {
+            device: {
+              include: {
+                cabinet: {
+                  include: {
+                    room: {
+                      include: {
+                        dataCenter: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        opticalModule: true,
+      },
+    });
+
+    if (!port) {
+      throw new Error('端口不存在');
+    }
+
+    // 2. 检查端口是否已被占用
+    if (port.status === 'OCCUPIED') {
+      throw new Error('端口已被占用');
+    }
+
+    // 3. 检查shortID是否已经存在端点
+    const existingEndpoint = await prisma.cableEndpoint.findUnique({
+      where: { shortId },
+      include: {
+        cable: {
+          include: {
+            endpoints: {
+              include: {
+                port: {
+                  include: {
+                    panel: {
+                      include: {
+                        device: {
+                          include: {
+                            cabinet: {
+                              include: {
+                                room: {
+                                  include: {
+                                    dataCenter: true,
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (existingEndpoint) {
+      // shortID已经属于某条线缆，更新该端点连接到指定端口
+      const cable = existingEndpoint.cable;
+
+      // 推断线缆类型（如果没有提供）
+      const finalType = cableData.type || cable.type;
+
+      // 验证兼容性
+      this.validateCableConnection(port, finalType);
+
+      // 更新端点的portId
+      await prisma.cableEndpoint.update({
+        where: { id: existingEndpoint.id },
+        data: { portId },
+      });
+
+      // 更新线缆信息（如果提供了新信息）
+      if (cableData.label || cableData.type || cableData.length || cableData.color || cableData.notes) {
+        await prisma.cable.update({
+          where: { id: cable.id },
+          data: {
+            label: cableData.label || cable.label,
+            type: finalType,
+            length: cableData.length !== undefined ? cableData.length : cable.length,
+            color: cableData.color || cable.color,
+            notes: cableData.notes || cable.notes,
+          },
+        });
+      }
+
+      // 更新端口状态
+      await prisma.port.update({
+        where: { id: portId },
+        data: {
+          status: 'OCCUPIED',
+          physicalStatus: 'CONNECTED',
+        },
+      });
+
+      // 检查线缆的另一端是否也已连接
+      const otherEndpoint = cable.endpoints.find(e => e.id !== existingEndpoint.id);
+      const bothConnected = otherEndpoint && otherEndpoint.portId;
+
+      // 如果两端都连接了，更新线缆状态为IN_USE，并同步到图数据库
+      if (bothConnected) {
+        await prisma.cable.update({
+          where: { id: cable.id },
+          data: { inventoryStatus: 'IN_USE' },
+        });
+
+        // 同步到图数据库
+        const portA = existingEndpoint.endType === 'A' ? port : await prisma.port.findUnique({ where: { id: otherEndpoint.portId! } });
+        const portB = existingEndpoint.endType === 'B' ? port : await prisma.port.findUnique({ where: { id: otherEndpoint.portId! } });
+
+        if (portA && portB) {
+          await cableGraphService.syncPortNode(portA.id, { ...portA, panelId: portA.panelId });
+          await cableGraphService.syncPortNode(portB.id, { ...portB, panelId: portB.panelId });
+          await cableGraphService.createConnection({
+            cableId: cable.id,
+            portAId: portA.id,
+            portBId: portB.id,
+            cableData: {
+              label: cable.label || undefined,
+              type: cable.type,
+              color: cable.color || undefined,
+              length: cable.length || undefined,
+            },
+          });
+        }
+      }
+
+      // 查询对端信息
+      const peerInfo = otherEndpoint?.portId
+        ? await this.getPortConnection(otherEndpoint.portId)
+        : null;
+
+      return {
+        cable: await prisma.cable.findUnique({
+          where: { id: cable.id },
+          include: { endpoints: true },
+        }),
+        connectedEndpoint: existingEndpoint,
+        otherEndpoint,
+        peerInfo,
+      };
+    } else {
+      // shortID是新的，创建新线缆
+      // 推断线缆类型
+      const finalType = cableData.type || this.inferCableType(port.portType);
+
+      // 验证兼容性
+      this.validateCableConnection(port, finalType);
+
+      // 分配shortID
+      await shortIdPoolService.allocateShortId('CABLE_ENDPOINT', '', shortId);
+
+      // 创建线缆记录
+      const cable = await prisma.cable.create({
+        data: {
+          label: cableData.label,
+          type: finalType,
+          length: cableData.length,
+          color: cableData.color,
+          notes: cableData.notes,
+          inventoryStatus: 'INVENTORIED', // 只连接了一端，状态为已入库
+        },
+      });
+
+      // 创建端点
+      const endpoint = await prisma.cableEndpoint.create({
+        data: {
+          cableId: cable.id,
+          endType: 'A',
+          portId: portId,
+          shortId: shortId,
+        },
+      });
+
+      // 绑定shortID
+      await shortIdPoolService.bindShortIdToEntity(shortId, 'CABLE_ENDPOINT', endpoint.id);
+
+      // 更新端口状态
+      await prisma.port.update({
+        where: { id: portId },
+        data: {
+          status: 'OCCUPIED',
+          physicalStatus: 'CONNECTED',
+        },
+      });
+
+      return {
+        cable: await prisma.cable.findUnique({
+          where: { id: cable.id },
+          include: { endpoints: true },
+        }),
+        connectedEndpoint: endpoint,
+        otherEndpoint: null,
+        peerInfo: null,
+      };
+    }
+  }
+
+  /**
    * 手动入库：通过扫描线缆两端标签的shortID来创建线缆记录
    * shortIdA 和 shortIdB 是线缆端点的标签（从ShortIdPool预分配的shortID）
    * 线缆本身通过两端端口可以唯一确定，不需要独立的shortID
@@ -651,6 +881,32 @@ class CableService {
    */
   private isEthernetCable(cableType: CableType): boolean {
     return ['CAT5E', 'CAT6', 'CAT6A', 'CAT7'].includes(cableType);
+  }
+
+  /**
+   * 根据端口类型推断线缆类型
+   */
+  private inferCableType(portType?: string | null): CableType {
+    if (!portType) {
+      return 'OTHER'; // 默认类型
+    }
+
+    // RJ45 端口 -> 以太网线缆
+    if (portType === 'RJ45') {
+      return 'CAT6'; // 默认CAT6
+    }
+
+    // SFP/SFP+ 端口 -> 光纤或DAC
+    if (portType === 'SFP' || portType === 'SFP_PLUS') {
+      return 'FIBER_MM'; // 默认多模光纤
+    }
+
+    // QSFP 端口 -> 光纤或DAC
+    if (portType === 'QSFP' || portType === 'QSFP28' || portType === 'QSFP_DD') {
+      return 'FIBER_MM'; // 默认多模光纤
+    }
+
+    return 'OTHER';
   }
 }
 

@@ -6,7 +6,7 @@
 
 - Node.js + TypeScript
 - Express.js
-- Prisma ORM (SQLite/PostgreSQL)
+- Prisma ORM (PostgreSQL)
 - Neo4j 图数据库
 - Zod (数据验证)
 
@@ -18,12 +18,31 @@ backend/
 │   ├── graph/          # Neo4j 图数据库操作
 │   │   ├── neo4j.ts
 │   │   └── cableGraph.ts
-│   ├── routes/         # API 路由
+│   ├── routes/         # API 路由（13个路由模块）
+│   │   ├── datacenters.ts
+│   │   ├── rooms.ts
+│   │   ├── cabinets.ts
 │   │   ├── devices.ts
-│   │   └── cables.ts
+│   │   ├── panels.ts
+│   │   ├── ports.ts
+│   │   ├── cables.ts
+│   │   ├── opticalModules.ts
+│   │   ├── panelTemplateRoutes.ts
+│   │   ├── shortIdPool.ts
+│   │   ├── cableShortIdPool.ts (向后兼容)
+│   │   ├── search.ts
+│   │   └── monitoring.ts (已隐藏)
 │   ├── services/       # 业务逻辑层
+│   │   ├── dataCenterService.ts
+│   │   ├── roomService.ts
+│   │   ├── cabinetService.ts
 │   │   ├── deviceService.ts
-│   │   └── cableService.ts
+│   │   ├── panelService.ts
+│   │   ├── portService.ts
+│   │   ├── cableService.ts
+│   │   ├── opticalModuleService.ts
+│   │   ├── shortIdService.ts
+│   │   └── ...
 │   ├── utils/          # 工具函数
 │   │   └── prisma.ts
 │   └── index.ts        # 入口文件
@@ -34,14 +53,18 @@ backend/
 
 ## 数据模型
 
-### 关系数据库 (Prisma + SQLite)
+### 关系数据库 (Prisma + PostgreSQL)
 - **DataCenter** - 数据中心
-- **Room** - 机房
-- **Cabinet** - 机柜
-- **Device** - 设备
-- **Panel** - 面板
-- **Port** - 端口
-- **Cable** - 线缆（基础信息）
+- **Room** - 机房（带 ShortID）
+- **Cabinet** - 机柜（带 ShortID）
+- **Device** - 设备（可在机柜中唯一识别）
+- **Panel** - 面板（带 ShortID、支持模板）
+- **Port** - 端口（支持多种端口类型）
+- **Cable** - 线缆（带双端 ShortID）
+- **CableEndpoint** - 线缆端点（关联 ShortID）
+- **OpticalModule** - 光模块（带序列号、安装历史）
+- **PanelTemplate** - 面板模板（可复用配置）
+- **GlobalShortIdAllocation** - ShortID 分配记录
 
 ### 图数据库 (Neo4j)
 - **Port** 节点 - 端口
@@ -88,8 +111,8 @@ npm run prisma:studio
 ## 环境变量
 
 ```env
-# 关系数据库
-DATABASE_URL="file:./dev.db"
+# 关系数据库 (PostgreSQL)
+DATABASE_URL="postgresql://dcagent:dcagent_password@localhost:5432/dcagent?schema=public"
 
 # Neo4j 图数据库
 NEO4J_URI="bolt://localhost:7687"
@@ -101,42 +124,78 @@ PORT=3000
 NODE_ENV=development
 ```
 
-## API 端点
+## API 设计规范
 
-### 设备管理
-- `GET /api/devices` - 获取所有设备
-- `GET /api/devices/:id` - 获取设备详情
-- `POST /api/devices` - 创建设备
-- `PUT /api/devices/:id` - 更新设备
-- `DELETE /api/devices/:id` - 删除设备
+所有 API 统一使用 **POST 方法 + body 传参**（不是传统的 RESTful），基础 URL 为 `/api/v1`
 
-### 线缆管理
-- `GET /api/cables` - 获取所有线缆
-- `GET /api/cables/:id` - 获取线缆详情
-- `POST /api/cables` - 创建线缆连接
-- `PUT /api/cables/:id` - 更新线缆信息
-- `DELETE /api/cables/:id` - 删除线缆连接
-- `GET /api/cables/port/:portId/connection` - 查询端口连接
-- `GET /api/cables/panel/:panelId/connections` - 查询面板所有连接
-- `GET /api/cables/panel/:panelId/topology` - 查询网状拓扑
+```typescript
+// 正确的方式
+POST /api/v1/cabinets/get
+Content-Type: application/json
+
+{
+  "id": "cabinet-uuid"
+}
+
+// 不使用的方式
+GET /api/v1/cabinets/:id  // ❌ 不拼接 URL
+```
+
+详见 [API.md](../docs/API.md) 获取完整的 API 文档
+
+## API 路由模块 (13个)
+
+| 模块 | 前缀 | 说明 |
+|------|------|------|
+| 数据中心 | `/api/v1/datacenters` | 数据中心管理 |
+| 机房 | `/api/v1/rooms` | 机房管理 |
+| 机柜 | `/api/v1/cabinets` | 机柜管理（支持 ShortID） |
+| 设备 | `/api/v1/devices` | 设备管理 |
+| 面板 | `/api/v1/panels` | 面板管理（支持 ShortID、模板） |
+| 端口 | `/api/v1/ports` | 端口管理 |
+| 线缆 | `/api/v1/cables` | 线缆管理（双端 ShortID）|
+| 光模块 | `/api/v1/optical-modules` | 光模块库存和安装管理 |
+| 面板模板 | `/api/v1/panel-templates` | 可复用的面板配置 |
+| ShortID 池 | `/api/v1/shortid-pool` | ShortID 生成、分配、绑定 |
+| 线缆 ShortID 池 | `/api/v1/cable-shortid-pool` | 向后兼容（已废弃） |
+| 全局搜索 | `/api/v1/search` | 按关键词或 ShortID 搜索 |
+| SNMP 监控 | `/api/v1/monitoring` | 设备监控（已隐藏） |
 
 ## 核心功能
 
-### 1. 线缆跟踪
-- 记录线缆两端的端口连接
-- 快速查询端口的另一端
-- 查询面板的所有关联面板
-- 生成网状拓扑图数据
+### 1. 分层资源管理
+- 数据中心 → 机房 → 机柜 → 设备 → 面板 → 端口
+- 完整的级联删除支持
+- ShortID 快速识别（机柜、机房、面板等）
 
-### 2. 设备管理
-- 分层管理：数据中心 → 机房 → 机柜 → 设备
-- 设备面板和端口管理
-- 端口状态跟踪（可用/占用/预留/故障）
+### 2. 线缆管理
+- 线缆两端 ShortID 记录和快速查询
+- 端口连接状态跟踪
+- 网状拓扑图生成（用于前端可视化）
+- 单端连接和双端连接支持
+- 手动入库机制
 
-### 3. 图数据库查询
-- 利用 Neo4j 进行高效的关系查询
-- 支持多层级拓扑遍历
-- 快速查找连接路径
+### 3. ShortID 系统
+- 统一的 ShortID 分配和管理
+- 支持批量生成、打印、绑定
+- 格式化显示（E-00001）
+- 适用场景：机柜、机房、面板、线缆端点
+
+### 4. 光模块管理
+- 库存追踪（购买、入库、在库）
+- 安装/卸载历史
+- 序列号追踪
+- 物理转移和报废管理
+
+### 5. 面板模板
+- 预设模板（24口、48口交换机等）
+- 快速创建标准化面板
+- 自动生成端口配置
+
+### 6. 拓扑查询
+- 利用 Neo4j 高效的关系查询
+- 多跳网络路径查询
+- 快速查找连接关系
 
 ## Neo4j 安装
 

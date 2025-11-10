@@ -54,6 +54,7 @@ import { portService } from '@/services/portService';
 import { roomService } from '@/services/roomService';
 import type { Panel as PanelType, Device, Cabinet, Port, Room } from '@/types';
 import CreateCableModal from '@/components/CreateCableModal';
+import ConnectSingleCableModal from '@/components/ConnectSingleCableModal';
 import PanelCanvasEditor, { PortDefinition } from '@/components/PanelCanvasEditor';
 import { getPortSize } from '@/constants/portSizes';
 import { ShortIdFormatter } from '@/utils/shortIdFormatter';
@@ -249,6 +250,7 @@ function CableTopologyContent() {
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [createCableModalVisible, setCreateCableModalVisible] = useState(false);
+  const [connectSingleCableModalVisible, setConnectSingleCableModalVisible] = useState(false);
   const [portModalVisible, setPortModalVisible] = useState(false);
   const [selectedDeviceForPorts, setSelectedDeviceForPorts] = useState<any>(null);
   const [hoveredPortId, setHoveredPortId] = useState<string | null>(null);
@@ -689,6 +691,11 @@ function CableTopologyContent() {
     setCreateCableModalVisible(true);
   };
 
+  // 打开单端连接对话框
+  const handleOpenConnectSingleCableModal = () => {
+    setConnectSingleCableModalVisible(true);
+  };
+
   // 创建线缆成功后刷新拓扑
   const handleCreateCableSuccess = () => {
     handleRefresh();
@@ -825,6 +832,15 @@ function CableTopologyContent() {
             </Button>
           </Tooltip>
 
+          <Tooltip title="单端连接">
+            <Button
+              icon={<LinkOutlined />}
+              onClick={handleOpenConnectSingleCableModal}
+            >
+              单端连接
+            </Button>
+          </Tooltip>
+
           <Tooltip title={t('buttons.refresh')}>
             <Button icon={<ReloadOutlined />} onClick={handleRefresh} />
           </Tooltip>
@@ -952,6 +968,14 @@ function CableTopologyContent() {
         onClose={() => setCreateCableModalVisible(false)}
         onSuccess={handleCreateCableSuccess}
         initialPanelAId={selectedPanelId}
+      />
+
+      {/* 单端连接对话框 */}
+      <ConnectSingleCableModal
+        visible={connectSingleCableModalVisible}
+        onClose={() => setConnectSingleCableModalVisible(false)}
+        onSuccess={handleCreateCableSuccess}
+        initialPanelId={selectedPanelId}
       />
 
       {/* 线缆详情和编辑模态框 */}

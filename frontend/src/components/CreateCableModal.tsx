@@ -30,9 +30,9 @@ import { panelService } from '@/services/panelService';
 import { portService } from '@/services/portService';
 import { cableService } from '@/services/cableService';
 import { deviceService } from '@/services/deviceService';
-import { shortIdPoolService } from '@/services/shortIdPoolService';
 import { PanelVisualizer } from '@/components/PanelVisualizer';
-import type { Panel, Port, Device, CableType } from '@/types';
+import { parseShortId } from '@/utils/shortIdFormatter';
+import type { Panel, Port, Device } from '@/types';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -84,6 +84,8 @@ export default function CreateCableModal({
   const [selectedPortB, setSelectedPortB] = useState<Port | null>(null);
   const [scanInputA, setScanInputA] = useState('');
   const [scanInputB, setScanInputB] = useState('');
+  const [shortIdInputA, setShortIdInputA] = useState('');
+  const [shortIdInputB, setShortIdInputB] = useState('');
 
   useEffect(() => {
     if (visible) {
@@ -115,6 +117,8 @@ export default function CreateCableModal({
     setPortsB([]);
     setScanInputA('');
     setScanInputB('');
+    setShortIdInputA('');
+    setShortIdInputB('');
   };
 
   const loadPanels = async () => {
@@ -200,49 +204,121 @@ export default function CreateCableModal({
     setSelectedPortB(port);
   };
 
-  // 处理扫码输入（面板A）
+  // 处理扫码输入（面板A）- 仅在 Enter 或失焦时触发
   const handleScanInputA = async (value: string) => {
-    setScanInputA(value);
     if (!value.trim()) return;
 
-    const shortId = parseInt(value.trim(), 10);
-    if (isNaN(shortId)) {
-      message.error('请输入有效的数字ID');
-      return;
-    }
-
     try {
+      // 支持 E-00001 格式或纯数字格式
+      const shortId = parseShortId(value.trim());
       const panel = await panelService.getByShortId(shortId);
       if (panel) {
         message.success(`已加载面板：${panel.name}`);
         await handlePanelAChange(panel.id);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load panel by shortId:', error);
-      message.error('未找到该ID对应的面板');
+      if (error.message?.includes('无效的shortID格式')) {
+        message.error('请输入有效的ID格式（如：E-00001 或 1）');
+      } else {
+        message.error('未找到该ID对应的面板');
+      }
     }
   };
 
-  // 处理扫码输入（面板B）
+  // 处理扫码输入（面板B）- 仅在 Enter 或失焦时触发
   const handleScanInputB = async (value: string) => {
-    setScanInputB(value);
     if (!value.trim()) return;
 
-    const shortId = parseInt(value.trim(), 10);
-    if (isNaN(shortId)) {
-      message.error('请输入有效的数字ID');
-      return;
-    }
-
     try {
+      // 支持 E-00001 格式或纯数字格式
+      const shortId = parseShortId(value.trim());
       const panel = await panelService.getByShortId(shortId);
       if (panel) {
         message.success(`已加载面板：${panel.name}`);
         await handlePanelBChange(panel.id);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load panel by shortId:', error);
-      message.error('未找到该ID对应的面板');
+      if (error.message?.includes('无效的shortID格式')) {
+        message.error('请输入有效的ID格式（如：E-00001 或 1）');
+      } else {
+        message.error('未找到该ID对应的面板');
+      }
+    }
+  };
+
+  // 处理端点A的ShortID输入 - 检查是否已被线缆使用
+  const handleShortIdAInput = async (value: string) => {
+    if (!value.trim()) return;
+
+    try {
+      const shortId = parseShortId(value.trim());
+      const result = await cableService.getCableEndpointsByShortId(shortId);
+
+      if (result && result.cable) {
+        const endpoints = result.cable.endpoints || [];
+
+        // 检查线缆是否已有两个端点（完整线缆）
+        if (endpoints.length >= 2) {
+          // 完整线缆，提示将连接到对端口
+          message.success(`找到已存在的完整线缆，将连接到该线缆的对端端口`);
+
+          // 自动填充线缆信息
+          form.setFieldsValue({
+            shortIdA: shortId,
+            label: result.cable.label || '',
+            type: result.cable.type,
+            length: result.cable.length,
+            color: result.cable.color || '',
+            notes: result.cable.notes || '',
+          });
+          return;
+        }
+
+        // 只有一个端点，提示将连接到该线缆
+        message.success(`找到已存在的线缆端点，提交时将连接到该线缆`);
+
+        // 填充线缆信息作为参考
+        form.setFieldsValue({
+          shortIdA: shortId,
+          label: result.cable.label || '',
+          type: result.cable.type,
+          length: result.cable.length,
+          color: result.cable.color || '',
+          notes: result.cable.notes || '',
+        });
+      } else {
+        // shortID未被使用，这是正常的新建流程
+        form.setFieldValue('shortIdA', shortId);
+      }
+    } catch (error: any) {
+      console.error('Failed to check shortId:', error);
+      if (error.message?.includes('无效的shortID格式')) {
+        message.error('请输入有效的ID格式（如：E-00001 或 1）');
+      } else {
+        // 404错误说明shortID未被使用，这是正常的
+        try {
+          const shortId = parseShortId(value.trim());
+          form.setFieldValue('shortIdA', shortId);
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+  };
+
+  // 处理端点B的ShortID输入
+  const handleShortIdBInput = async (value: string) => {
+    if (!value.trim()) return;
+
+    try {
+      const shortId = parseShortId(value.trim());
+      form.setFieldValue('shortIdB', shortId);
+    } catch (error: any) {
+      if (error.message?.includes('无效的shortID格式')) {
+        message.error('请输入有效的ID格式（如：E-00001 或 1）');
+      }
     }
   };
 
@@ -256,6 +332,48 @@ export default function CreateCableModal({
 
   const handlePrev = () => {
     setCurrentStep(0);
+  };
+
+  // 格式化端口显示信息（包含设备和位置）
+  const formatPortInfo = (panel: Panel | null, port: Port | null) => {
+    if (!panel || !port) return '';
+
+    const device = panel.deviceId ? devicesMap.get(panel.deviceId) : null;
+    const parts: string[] = [];
+
+    // 设备名称
+    if (device) {
+      parts.push(device.name);
+
+      // 位置信息
+      const locationParts: string[] = [];
+      if (device.cabinet?.room?.dataCenter?.name) {
+        locationParts.push(device.cabinet.room.dataCenter.name);
+      }
+      if (device.cabinet?.room?.name) {
+        locationParts.push(device.cabinet.room.name);
+      }
+      if (device.cabinet?.name) {
+        locationParts.push(device.cabinet.name);
+      }
+      if (locationParts.length > 0) {
+        parts.push(`[${locationParts.join(' > ')}]`);
+      }
+    }
+
+    // 面板名称
+    parts.push(panel.name);
+
+    // 端口信息
+    const portInfo = port.label || `端口 ${port.number}`;
+    parts.push(portInfo);
+
+    // 端口类型
+    if (port.portType) {
+      parts.push(`(${port.portType})`);
+    }
+
+    return parts.join(' - ');
   };
 
   const handleSubmit = async () => {
@@ -276,19 +394,86 @@ export default function CreateCableModal({
 
       setLoading(true);
 
-      await cableService.create({
-        label: values.label,
-        type: values.type,
-        length: values.length,
-        color: values.color,
-        notes: values.notes,
-        portAId: selectedPortA.id,
-        portBId: selectedPortB.id,
-        shortIdA: values.shortIdA,
-        shortIdB: values.shortIdB,
-      });
+      // 检查是否有已存在的线缆端点
+      let existingCableEndpointA = null;
+      let existingCableEndpointB = null;
+      let isFullCableA = false;
+      let isFullCableB = false;
 
-      message.success('线缆连接创建成功！');
+      try {
+        const resultA = await cableService.getCableEndpointsByShortId(values.shortIdA);
+        if (resultA && resultA.cable) {
+          const endpoints = resultA.cable.endpoints || [];
+          if (endpoints.length >= 2) {
+            // 完整线缆，标记但不阻止
+            isFullCableA = true;
+            existingCableEndpointA = resultA;
+          } else {
+            existingCableEndpointA = resultA;
+          }
+        }
+      } catch (error) {
+        // 404 说明不存在，继续
+      }
+
+      try {
+        const resultB = await cableService.getCableEndpointsByShortId(values.shortIdB);
+        if (resultB && resultB.cable) {
+          const endpoints = resultB.cable.endpoints || [];
+          if (endpoints.length >= 2) {
+            // 完整线缆，标记但不阻止
+            isFullCableB = true;
+            existingCableEndpointB = resultB;
+          } else {
+            existingCableEndpointB = resultB;
+          }
+        }
+      } catch (error) {
+        // 404 说明不存在，继续
+      }
+
+      // 判断使用哪种创建方式
+      if (existingCableEndpointA || existingCableEndpointB) {
+        // 有已存在的端点，使用单端连接
+        const existingEndpoint = existingCableEndpointA || existingCableEndpointB;
+        const newPort = existingCableEndpointA ? selectedPortB : selectedPortA;
+        const newShortId = existingCableEndpointA ? values.shortIdB : values.shortIdA;
+        const isFullCable = isFullCableA || isFullCableB;
+
+        if (isFullCable) {
+          message.info('检测到已存在的完整线缆，将连接到该线缆的对端端口');
+        } else {
+          message.info('检测到已存在的线缆端点，将连接到该线缆');
+        }
+
+        await cableService.connectSinglePort({
+          portId: newPort.id,
+          shortId: newShortId,
+          label: values.label,
+          type: values.type,
+          length: values.length,
+          color: values.color,
+          notes: values.notes,
+        });
+
+        message.success('成功连接到已存在的线缆！');
+      } else {
+        // 没有已存在的端点，创建新线缆
+        await cableService.create({
+          label: values.label,
+          type: values.type,
+          length: values.length,
+          color: values.color,
+          notes: values.notes,
+          portAId: selectedPortA.id,
+          portBId: selectedPortB.id,
+          shortIdA: values.shortIdA,
+          shortIdB: values.shortIdB,
+        });
+
+        message.success('线缆连接创建成功！');
+      }
+
       onSuccess?.();
       onClose();
     } catch (error: any) {
@@ -325,17 +510,22 @@ export default function CreateCableModal({
         <Space direction="vertical" style={{ width: '100%' }} size="large">
           <Input
             prefix={<ScanOutlined />}
-            placeholder="扫描面板二维码或输入ID"
+            placeholder="扫描面板二维码或输入ID（如：E-00001）"
             value={sideLabel === '面板A' ? scanInputA : scanInputB}
             onChange={(e) =>
               sideLabel === '面板A'
-                ? handleScanInputA(e.target.value)
-                : handleScanInputB(e.target.value)
+                ? setScanInputA(e.target.value)
+                : setScanInputB(e.target.value)
             }
             onPressEnter={(e) =>
               sideLabel === '面板A'
                 ? handleScanInputA((e.target as HTMLInputElement).value)
                 : handleScanInputB((e.target as HTMLInputElement).value)
+            }
+            onBlur={(e) =>
+              sideLabel === '面板A'
+                ? handleScanInputA(e.target.value)
+                : handleScanInputB(e.target.value)
             }
             size="large"
             allowClear
@@ -522,18 +712,14 @@ export default function CreateCableModal({
               <Space direction="vertical" style={{ width: '100%' }}>
                 <div>
                   <strong>端口A：</strong>
-                  {selectedPanelA?.name} - {selectedPortA?.number}{' '}
-                  {selectedPortA?.label && `(${selectedPortA.label})`} -{' '}
-                  {selectedPortA?.portType || '未设置类型'}
+                  {formatPortInfo(selectedPanelA, selectedPortA)}
                 </div>
                 <div style={{ textAlign: 'center' }}>
                   <SwapOutlined style={{ fontSize: 24, color: '#52c41a' }} />
                 </div>
                 <div>
                   <strong>端口B：</strong>
-                  {selectedPanelB?.name} - {selectedPortB?.number}{' '}
-                  {selectedPortB?.label && `(${selectedPortB.label})`} -{' '}
-                  {selectedPortB?.portType || '未设置类型'}
+                  {formatPortInfo(selectedPanelB, selectedPortB)}
                 </div>
               </Space>
             }
@@ -559,12 +745,17 @@ export default function CreateCableModal({
             rules={[
               { required: true, message: '请输入端点A的shortID' },
             ]}
-            help="请扫码或手动输入端点A的shortID标签"
+            help="请扫码或手动输入端点A的shortID标签（如：E-00001 或 1），自动检测已存在线缆"
           >
-            <InputNumber
+            <Input
+              prefix={<ScanOutlined />}
               style={{ width: '100%' }}
-              placeholder="扫码或输入shortID（例如：1, 12345）"
-              min={1}
+              placeholder="扫码或输入shortID（如：E-00001 或 1）"
+              value={shortIdInputA}
+              onChange={(e) => setShortIdInputA(e.target.value)}
+              onPressEnter={(e) => handleShortIdAInput((e.target as HTMLInputElement).value)}
+              onBlur={(e) => handleShortIdAInput(e.target.value)}
+              allowClear
             />
           </Form.Item>
 
@@ -579,12 +770,17 @@ export default function CreateCableModal({
             rules={[
               { required: true, message: '请输入端点B的shortID' },
             ]}
-            help="请扫码或手动输入端点B的shortID标签"
+            help="请扫码或手动输入端点B的shortID标签（如：E-00001 或 1）"
           >
-            <InputNumber
+            <Input
+              prefix={<ScanOutlined />}
               style={{ width: '100%' }}
-              placeholder="扫码或输入shortID（例如：1, 12345）"
-              min={1}
+              placeholder="扫码或输入shortID（如：E-00001 或 1）"
+              value={shortIdInputB}
+              onChange={(e) => setShortIdInputB(e.target.value)}
+              onPressEnter={(e) => handleShortIdBInput((e.target as HTMLInputElement).value)}
+              onBlur={(e) => handleShortIdBInput(e.target.value)}
+              allowClear
             />
           </Form.Item>
 

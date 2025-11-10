@@ -72,6 +72,8 @@ export class ShortIdFormatter {
   }
 }
 
-// 便捷导出
-export const formatShortId = ShortIdFormatter.toDisplayFormat;
-export const parseShortId = ShortIdFormatter.toNumericFormat;
+// 便捷导出（绑定正确的 this 上下文）
+export const formatShortId = (numericId: number): string =>
+  ShortIdFormatter.toDisplayFormat(numericId);
+export const parseShortId = (displayId: string): number =>
+  ShortIdFormatter.toNumericFormat(displayId);

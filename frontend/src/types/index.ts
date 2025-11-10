@@ -46,6 +46,18 @@ export interface Device {
   uPosition?: number;
   uHeight?: number;
   cabinetId: string;
+  cabinet?: {
+    id: string;
+    name: string;
+    room?: {
+      id: string;
+      name: string;
+      dataCenter?: {
+        id: string;
+        name: string;
+      };
+    };
+  };
   // 扩展字段 - 待实现
   ipAddresses?: string[];
   managementIp?: string;

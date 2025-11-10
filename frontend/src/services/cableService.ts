@@ -23,6 +23,8 @@ export const cableService = {
     notes?: string;
     portAId: string;
     portBId: string;
+    shortIdA: number;
+    shortIdB: number;
   }): Promise<Cable> {
     const response = await api.post('/cables/create', data);
     return response.data;
@@ -115,6 +117,25 @@ export const cableService = {
     available?: any[];
   }> {
     const response = await api.post('/cables/check-multiple-shortids', { shortIds });
+    return response.data;
+  },
+
+  // 单端连接
+  async connectSinglePort(data: {
+    portId: string;
+    shortId: number;
+    label?: string;
+    type?: string;
+    length?: number;
+    color?: string;
+    notes?: string;
+  }): Promise<{
+    cable: Cable;
+    connectedEndpoint: any;
+    otherEndpoint: any;
+    peerInfo: any;
+  }> {
+    const response = await api.post('/cables/connect-single-port', data);
     return response.data;
   },
 };
