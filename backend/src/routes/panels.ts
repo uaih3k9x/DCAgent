@@ -8,7 +8,7 @@ const router = Router();
 const createPanelSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   type: z.enum(['NETWORK', 'POWER', 'CONSOLE', 'USB', 'MIXED', 'OTHER']),
-  shortId: z.number().int().positive().optional(), // 面板shortID
+  shortId: z.number().int().positive('ShortID must be a positive integer'), // 必须提供shortID
   deviceId: z.string().uuid('Invalid device ID'),
   // 模板相关
   templateId: z.string().uuid().optional(),

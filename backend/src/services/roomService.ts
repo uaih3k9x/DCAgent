@@ -1,10 +1,11 @@
 import { PrismaClient, Room } from '@prisma/client';
-import globalShortIdService from './globalShortIdService';
+import { shortIdPoolService } from './shortIdPoolService';
 
 const prisma = new PrismaClient();
 
 export interface CreateRoomInput {
   name: string;
+  shortId: number; // 必须提供shortID
   floor?: string;
   dataCenterId: string;
 }
@@ -76,7 +77,13 @@ class RoomService {
   }
 
   async createRoom(data: CreateRoomInput): Promise<Room> {
-    // 先创建实体
+    // 验证shortId是否可用
+    const existingCheck = await shortIdPoolService.checkShortIdExists(data.shortId);
+    if (existingCheck.exists) {
+      throw new Error(`ShortID ${data.shortId} 已被占用: ${existingCheck.usedBy === 'pool' ? '在标签池中' : '已绑定到实体'}`);
+    }
+
+    // 创建机房
     const room = await prisma.room.create({
       data,
       include: {
@@ -85,18 +92,10 @@ class RoomService {
       },
     });
 
-    // 分配全局唯一的 shortId
-    const shortId = await globalShortIdService.allocate('Room', room.id);
+    // 绑定shortID到池中
+    await shortIdPoolService.bindShortIdToEntity(data.shortId, 'ROOM', room.id);
 
-    // 更新实体的 shortId
-    return prisma.room.update({
-      where: { id: room.id },
-      data: { shortId },
-      include: {
-        dataCenter: true,
-        cabinets: true,
-      },
-    });
+    return room;
   }
 
   async updateRoom(id: string, data: UpdateRoomInput): Promise<Room> {
@@ -111,20 +110,28 @@ class RoomService {
   }
 
   async deleteRoom(id: string): Promise<Room> {
-    // 先获取实体的 shortId
+    // 先获取机房的shortId
     const room = await prisma.room.findUnique({
       where: { id },
       select: { shortId: true },
     });
 
-    // 删除实体
+    // 删除机房
     const deleted = await prisma.room.delete({
       where: { id },
     });
 
-    // 释放 shortId
+    // 将shortID标记为可重新使用
     if (room?.shortId) {
-      await globalShortIdService.release(room.shortId);
+      await prisma.shortIdPool.updateMany({
+        where: { shortId: room.shortId },
+        data: {
+          status: 'GENERATED',
+          entityType: null,
+          entityId: null,
+          boundAt: null,
+        },
+      });
     }
 
     return deleted;

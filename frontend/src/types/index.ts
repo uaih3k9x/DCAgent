@@ -8,6 +8,7 @@ export interface DataCenter {
 
 export interface Room {
   id: string;
+  shortId?: number;
   name: string;
   floor?: string;
   dataCenterId: string;
@@ -17,6 +18,7 @@ export interface Room {
 
 export interface Cabinet {
   id: string;
+  shortId?: number;
   name: string;
   position?: string;
   height: number;

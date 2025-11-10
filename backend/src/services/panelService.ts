@@ -1,11 +1,11 @@
 import prisma from '../utils/prisma';
 import { PanelType } from '@prisma/client';
-import globalShortIdService from './globalShortIdService';
+import { shortIdPoolService } from './shortIdPoolService';
 
 export interface CreatePanelDto {
   name: string;
   type: PanelType;
-  shortId?: number; // 面板shortID（将被全局服务覆盖）
+  shortId: number; // 必须提供shortID
   deviceId: string;
   // 模板相关
   templateId?: string;
@@ -49,30 +49,25 @@ export interface UpdatePanelDto {
 
 class PanelService {
   async createPanel(data: CreatePanelDto) {
-    // 移除用户提供的 shortId（如果有）
-    const { shortId: _, ...createData } = data;
+    // 验证shortId是否可用
+    const existingCheck = await shortIdPoolService.checkShortIdExists(data.shortId);
+    if (existingCheck.exists) {
+      throw new Error(`ShortID ${data.shortId} 已被占用: ${existingCheck.usedBy === 'pool' ? '在标签池中' : '已绑定到实体'}`);
+    }
 
-    // 先创建实体
+    // 创建面板
     const panel = await prisma.panel.create({
-      data: createData,
+      data,
       include: {
         device: true,
         ports: true,
       },
     });
 
-    // 分配全局唯一的 shortId
-    const shortId = await globalShortIdService.allocate('Panel', panel.id);
+    // 绑定shortID到池中
+    await shortIdPoolService.bindShortIdToEntity(data.shortId, 'PANEL', panel.id);
 
-    // 更新实体的 shortId
-    return await prisma.panel.update({
-      where: { id: panel.id },
-      data: { shortId },
-      include: {
-        device: true,
-        ports: true,
-      },
-    });
+    return panel;
   }
 
   async getPanelById(id: string) {
@@ -177,20 +172,29 @@ class PanelService {
   }
 
   async deletePanel(id: string) {
-    // 先获取实体的 shortId
+    // 先获取面板的shortId
     const panel = await prisma.panel.findUnique({
       where: { id },
       select: { shortId: true },
     });
 
-    // 删除实体
+    // 删除面板
     const deleted = await prisma.panel.delete({
       where: { id },
     });
 
-    // 释放 shortId
+    // 将shortID标记为可重新使用（从池中移除绑定）
     if (panel?.shortId) {
-      await globalShortIdService.release(panel.shortId);
+      // 解除绑定，将状态改回GENERATED，允许重新使用
+      await prisma.shortIdPool.updateMany({
+        where: { shortId: panel.shortId },
+        data: {
+          status: 'GENERATED',
+          entityType: null,
+          entityId: null,
+          boundAt: null,
+        },
+      });
     }
 
     return deleted;

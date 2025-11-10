@@ -20,3 +20,5 @@
    - 检查 service 文件的导出方式
    - export default 对应 import xxx from
    - export const 对应 import { xxx } from
+
+如果组件没有国际化，则先按照现有语言修改，然后改为国际化

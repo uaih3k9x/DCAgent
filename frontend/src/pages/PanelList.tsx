@@ -13,17 +13,20 @@ import {
   Popconfirm,
   Typography,
   Tag,
+  InputNumber,
 } from 'antd';
 import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
   ApartmentOutlined,
+  ScanOutlined,
 } from '@ant-design/icons';
 import { Panel, PanelType, Device } from '@/types';
 import { panelService } from '@/services/panelService';
 import { deviceService } from '@/services/deviceService';
 import { ShortIdFormatter } from '@/utils/shortIdFormatter';
+import { shortIdPoolService } from '@/services/shortIdPoolService';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
@@ -48,6 +51,7 @@ export default function PanelList() {
   const [editingPanel, setEditingPanel] = useState<Panel | null>(null);
   const [selectedDevice, setSelectedDevice] = useState<string>();
   const [selectedType, setSelectedType] = useState<PanelType>();
+  const [shortIdChecking, setShortIdChecking] = useState(false);
   const [form] = Form.useForm();
 
   // 加载设备列表
@@ -156,6 +160,31 @@ export default function PanelList() {
   const handleTypeFilter = (value: PanelType) => {
     setSelectedType(value);
     loadPanels(undefined, undefined, value);
+  };
+
+  // 验证shortID是否可用
+  const validateShortId = async (_: any, value: number) => {
+    if (!value) {
+      return Promise.reject('请输入shortID');
+    }
+
+    // 如果是编辑模式且shortID未改变，跳过验证
+    if (editingPanel && editingPanel.shortId === value) {
+      return Promise.resolve();
+    }
+
+    setShortIdChecking(true);
+    try {
+      const result = await shortIdPoolService.checkShortIdExists(value);
+      if (result.exists) {
+        return Promise.reject(`shortID已被占用: ${result.usedBy === 'pool' ? '在标签池中' : '已绑定到实体'}`);
+      }
+      return Promise.resolve();
+    } catch (error) {
+      return Promise.reject('验证失败');
+    } finally {
+      setShortIdChecking(false);
+    }
   };
 
   const columns = [
@@ -310,6 +339,28 @@ export default function PanelList() {
         cancelText={t('buttons.cancel')}
       >
         <Form form={form} layout="vertical">
+          <Form.Item
+            name="shortId"
+            label={
+              <Space>
+                <ScanOutlined />
+                ShortID
+              </Space>
+            }
+            rules={[
+              { required: true, message: '请输入shortID' },
+              { validator: validateShortId },
+            ]}
+            validateTrigger="onBlur"
+            help={editingPanel ? '编辑时不可修改shortID' : '请扫码或手动输入shortID'}
+          >
+            <InputNumber
+              style={{ width: '100%' }}
+              placeholder="扫码或输入shortID（例如：1, 12345）"
+              disabled={!!editingPanel}
+              min={1}
+            />
+          </Form.Item>
           <Form.Item
             name="name"
             label={t('fields.name')}

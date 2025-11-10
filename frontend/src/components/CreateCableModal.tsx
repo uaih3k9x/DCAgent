@@ -24,11 +24,13 @@ import {
   CheckCircleOutlined,
   InfoCircleOutlined,
   ScanOutlined,
+  WarningOutlined,
 } from '@ant-design/icons';
 import { panelService } from '@/services/panelService';
 import { portService } from '@/services/portService';
 import { cableService } from '@/services/cableService';
 import { deviceService } from '@/services/deviceService';
+import { shortIdPoolService } from '@/services/shortIdPoolService';
 import { PanelVisualizer } from '@/components/PanelVisualizer';
 import type { Panel, Port, Device, CableType } from '@/types';
 
@@ -266,6 +268,12 @@ export default function CreateCableModal({
       await form.validateFields();
       const values = form.getFieldsValue();
 
+      // 验证shortID是否已填写
+      if (!values.shortIdA || !values.shortIdB) {
+        message.error('请输入两端的shortID');
+        return;
+      }
+
       setLoading(true);
 
       await cableService.create({
@@ -276,6 +284,8 @@ export default function CreateCableModal({
         notes: values.notes,
         portAId: selectedPortA.id,
         portBId: selectedPortB.id,
+        shortIdA: values.shortIdA,
+        shortIdB: values.shortIdB,
       });
 
       message.success('线缆连接创建成功！');
@@ -528,6 +538,57 @@ export default function CreateCableModal({
               </Space>
             }
           />
+
+          <Alert
+            message="线缆标签管理"
+            description="请为线缆的两个端点分别扫码或输入shortID，用于标识和管理线缆端点"
+            type="warning"
+            showIcon
+            icon={<WarningOutlined />}
+            style={{ marginBottom: 16 }}
+          />
+
+          <Form.Item
+            label={
+              <Space>
+                <ScanOutlined />
+                端点A的ShortID
+              </Space>
+            }
+            name="shortIdA"
+            rules={[
+              { required: true, message: '请输入端点A的shortID' },
+            ]}
+            help="请扫码或手动输入端点A的shortID标签"
+          >
+            <InputNumber
+              style={{ width: '100%' }}
+              placeholder="扫码或输入shortID（例如：1, 12345）"
+              min={1}
+            />
+          </Form.Item>
+
+          <Form.Item
+            label={
+              <Space>
+                <ScanOutlined />
+                端点B的ShortID
+              </Space>
+            }
+            name="shortIdB"
+            rules={[
+              { required: true, message: '请输入端点B的shortID' },
+            ]}
+            help="请扫码或手动输入端点B的shortID标签"
+          >
+            <InputNumber
+              style={{ width: '100%' }}
+              placeholder="扫码或输入shortID（例如：1, 12345）"
+              min={1}
+            />
+          </Form.Item>
+
+          <Divider />
 
           <Form.Item label="线缆标签" name="label">
             <Input placeholder="例如：服务器1-交换机1" />

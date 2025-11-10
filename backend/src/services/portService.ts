@@ -1,6 +1,5 @@
 import prisma from '../utils/prisma';
 import { PortStatus } from '@prisma/client';
-import globalShortIdService from './globalShortIdService';
 
 export interface CreatePortDto {
   number: string;
@@ -37,8 +36,7 @@ export interface UpdatePortDto {
 
 class PortService {
   async createPort(data: CreatePortDto) {
-    // 先创建实体
-    const port = await prisma.port.create({
+    return await prisma.port.create({
       data: {
         ...data,
         status: data.status || PortStatus.AVAILABLE,
@@ -51,32 +49,25 @@ class PortService {
         },
       },
     });
-
-    // 分配全局唯一的 shortId
-    const shortId = await globalShortIdService.allocate('Port', port.id);
-
-    // 更新实体的 shortId
-    return await prisma.port.update({
-      where: { id: port.id },
-      data: { shortId },
-      include: {
-        panel: {
-          include: {
-            device: true,
-          },
-        },
-      },
-    });
   }
 
-  async createBulkPorts(panelId: string, count: number, prefix: string = 'Port-') {
-    // 批量创建时，需要逐个分配 shortId
+  async createBulkPorts(panelId: string, count: number, prefix: string = 'Port-', useCustomPrefix: boolean = false) {
     const createdPorts = [];
 
     for (let i = 1; i <= count; i++) {
+      let label: string;
+
+      if (useCustomPrefix) {
+        // 使用自定义前缀，替换 Var 为序号
+        label = prefix.replace(/Var/g, String(i));
+      } else {
+        // 使用旧的前缀方式
+        label = `${prefix}${i}`;
+      }
+
       const port = await this.createPort({
         number: String(i),
-        label: `${prefix}${i}`,
+        label,
         panelId,
         status: PortStatus.AVAILABLE,
       });
@@ -110,31 +101,6 @@ class PortService {
         cableEndpoints: {
           include: {
             cable: true,
-          },
-        },
-      },
-    });
-  }
-
-  async getPortByShortId(shortId: number) {
-    return await prisma.port.findUnique({
-      where: { shortId },
-      include: {
-        panel: {
-          include: {
-            device: {
-              include: {
-                cabinet: {
-                  include: {
-                    room: {
-                      include: {
-                        dataCenter: true,
-                      },
-                    },
-                  },
-                },
-              },
-            },
           },
         },
       },
@@ -211,23 +177,9 @@ class PortService {
   }
 
   async deletePort(id: string) {
-    // 先获取实体的 shortId
-    const port = await prisma.port.findUnique({
-      where: { id },
-      select: { shortId: true },
-    });
-
-    // 删除实体
-    const deleted = await prisma.port.delete({
+    return await prisma.port.delete({
       where: { id },
     });
-
-    // 释放 shortId
-    if (port?.shortId) {
-      await globalShortIdService.release(port.shortId);
-    }
-
-    return deleted;
   }
 
   async searchPorts(query: string) {

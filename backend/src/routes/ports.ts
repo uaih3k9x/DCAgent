@@ -26,6 +26,7 @@ const createBulkPortsSchema = z.object({
   panelId: z.string().uuid('Invalid panel ID'),
   count: z.number().int().positive('Count must be positive'),
   prefix: z.string().optional(),
+  useCustomPrefix: z.boolean().optional(),
 });
 
 const updatePortSchema = z.object({
@@ -118,8 +119,8 @@ router.post('/create', async (req: Request, res: Response) => {
 // POST /api/v1/ports/create-bulk - 批量创建端口
 router.post('/create-bulk', async (req: Request, res: Response) => {
   try {
-    const { panelId, count, prefix } = createBulkPortsSchema.parse(req.body);
-    const result = await portService.createBulkPorts(panelId, count, prefix);
+    const { panelId, count, prefix, useCustomPrefix } = createBulkPortsSchema.parse(req.body);
+    const result = await portService.createBulkPorts(panelId, count, prefix, useCustomPrefix);
     res.status(201).json(result);
   } catch (error) {
     if (error instanceof z.ZodError) {

@@ -29,6 +29,7 @@ import {
   RotateLeftOutlined,
   RotateRightOutlined,
   GroupOutlined,
+  BorderOuterOutlined,
 } from '@ant-design/icons';
 import { PortType, getPortSize, PORT_TYPE_OPTIONS } from '@/constants/portSizes';
 import { PortIcon } from './PortIcon';
@@ -56,6 +57,105 @@ const PORT_COLORS = {
   AVAILABLE: '#52c41a',
   SELECTED: '#1890ff',
 };
+
+// 预览画布组件
+interface PreviewCanvasProps {
+  width: number;
+  height: number;
+  ports: PortDefinition[];
+}
+
+function PreviewCanvas({ width, height, ports }: PreviewCanvasProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const previewZoom = 1.2;
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // 清空画布
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 绘制面板背景
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, width * previewZoom, height * previewZoom);
+
+    // 绘制面板边框
+    ctx.strokeStyle = '#d9d9d9';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(0, 0, width * previewZoom, height * previewZoom);
+
+    // 绘制端口
+    ports.forEach((port) => {
+      const x = port.position.x * previewZoom;
+      const y = port.position.y * previewZoom;
+      const w = port.size.width * previewZoom;
+      const h = port.size.height * previewZoom;
+
+      ctx.save();
+
+      // 移动到端口中心
+      ctx.translate(x + w / 2, y + h / 2);
+
+      // 应用旋转
+      if (port.rotation) {
+        ctx.rotate((port.rotation * Math.PI) / 180);
+      }
+
+      // 绘制端口矩形（以中心为原点）
+      ctx.fillStyle = '#1890ff';
+      ctx.fillRect(-w / 2, -h / 2, w, h);
+
+      // 绘制端口边框
+      ctx.strokeStyle = '#0050b3';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(-w / 2, -h / 2, w, h);
+
+      // 绘制端口编号
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `${Math.min(10, w / 2)}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(port.number, 0, 0);
+
+      ctx.restore();
+
+      // 检查端口是否超出面板
+      const isOutOfBounds =
+        port.position.x < 0 ||
+        port.position.y < 0 ||
+        port.position.x + port.size.width > width ||
+        port.position.y + port.size.height > height;
+
+      if (isOutOfBounds) {
+        // 绘制警告标记
+        ctx.save();
+        ctx.fillStyle = 'rgba(255, 77, 79, 0.3)';
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = '#ff4d4f';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+      }
+    });
+  }, [width, height, ports, previewZoom]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={width * previewZoom}
+      height={height * previewZoom}
+      style={{
+        maxWidth: '100%',
+        height: 'auto',
+        display: 'block',
+      }}
+    />
+  );
+}
 
 export default function PanelCanvasEditor({
   width,
@@ -525,6 +625,7 @@ export default function PanelCanvasEditor({
   // 批量添加端口组
   const [addPortGroupModalVisible, setAddPortGroupModalVisible] = useState(false);
   const [addPortGroupForm] = Form.useForm();
+  const [previewPorts, setPreviewPorts] = useState<PortDefinition[]>([]);
 
   const handleAddPortGroup = () => {
     setAddPortGroupModalVisible(true);
@@ -532,43 +633,189 @@ export default function PanelCanvasEditor({
       portType: PortType.RJ45,
       count: 8,
       layout: 'horizontal',
+      numberingPattern: 'sequential',
+      spacing: 2,
+      startX: 20,
+      startY: 20,
+    });
+    // 初始化预览
+    updatePreview({
+      portType: PortType.RJ45,
+      count: 8,
+      layout: 'horizontal',
+      numberingPattern: 'sequential',
       spacing: 2,
       startX: 20,
       startY: 20,
     });
   };
 
-  const handleConfirmAddPortGroup = () => {
-    addPortGroupForm.validateFields().then((values) => {
-      const { portType, count, layout, spacing, startX, startY } = values;
-      const portSize = getPortSize(portType);
+  // 计算网格端口布局
+  const calculateGridPorts = (
+    portType: PortType,
+    count: number,
+    layout: string,
+    numberingPattern: string,
+    spacing: number,
+    startX: number,
+    startY: number,
+    customPrefix?: string
+  ): PortDefinition[] => {
+    const portSize = getPortSize(portType);
+    const newPorts: PortDefinition[] = [];
 
-      const newPorts: PortDefinition[] = [];
+    // 根据编号模式生成端口编号和位置的映射
+    const portPositions: Array<{ number: string; index: number }> = [];
+
+    if (layout === 'grid' && numberingPattern === 'switch') {
+      // 交换机模式：奇数在上排，偶数在下排 (1 3 5 7 / 2 4 6 8)
+      const cols = Math.ceil(count / 2);
       for (let i = 0; i < count; i++) {
-        const portNumber = String(ports.length + i + 1);
-        let x = startX;
-        let y = startY;
-
-        if (layout === 'horizontal') {
-          x = startX + i * (portSize.width + spacing);
-        } else if (layout === 'vertical') {
-          y = startY + i * (portSize.height + spacing);
-        } else if (layout === 'grid') {
-          const cols = Math.ceil(Math.sqrt(count));
-          const row = Math.floor(i / cols);
-          const col = i % cols;
-          x = startX + col * (portSize.width + spacing);
-          y = startY + row * (portSize.height + spacing);
+        const portNum = i + 1;
+        let physicalIndex: number;
+        if (portNum % 2 === 1) {
+          // 奇数端口在上排
+          physicalIndex = Math.floor((portNum - 1) / 2);
+        } else {
+          // 偶数端口在下排
+          physicalIndex = cols + Math.floor((portNum - 2) / 2);
         }
 
-        newPorts.push({
-          number: portNumber,
-          portType,
-          position: { x, y },
-          size: { width: portSize.width, height: portSize.height },
-          rotation: 0,
+        // 根据是否有自定义前缀生成端口编号
+        const number = customPrefix
+          ? customPrefix.replace(/Var/g, String(ports.length + portNum))
+          : String(ports.length + portNum);
+
+        portPositions.push({
+          number,
+          index: physicalIndex,
         });
       }
+    } else {
+      // 顺序模式：按顺序排列 (1 2 3 4 ...)
+      for (let i = 0; i < count; i++) {
+        const portNum = ports.length + i + 1;
+
+        // 根据是否有自定义前缀生成端口编号
+        const number = customPrefix
+          ? customPrefix.replace(/Var/g, String(portNum))
+          : String(portNum);
+
+        portPositions.push({
+          number,
+          index: i,
+        });
+      }
+    }
+
+    // 根据物理位置生成端口
+    portPositions.forEach(({ number, index }) => {
+      let x = startX;
+      let y = startY;
+
+      if (layout === 'horizontal') {
+        x = startX + index * (portSize.width + spacing);
+      } else if (layout === 'vertical') {
+        y = startY + index * (portSize.height + spacing);
+      } else if (layout === 'grid') {
+        const cols = numberingPattern === 'switch' ? Math.ceil(count / 2) : Math.ceil(Math.sqrt(count));
+        const row = Math.floor(index / cols);
+        const col = index % cols;
+        x = startX + col * (portSize.width + spacing);
+        y = startY + row * (portSize.height + spacing);
+      }
+
+      newPorts.push({
+        number,
+        portType,
+        position: { x, y },
+        size: { width: portSize.width, height: portSize.height },
+        rotation: 0,
+      });
+    });
+
+    return newPorts;
+  };
+
+  // 更新预览
+  const updatePreview = (values: any) => {
+    const { portType, count, layout, numberingPattern, spacing, startX, startY, customPrefix } = values;
+    if (portType && count && layout && numberingPattern && spacing !== undefined && startX !== undefined && startY !== undefined) {
+      const preview = calculateGridPorts(portType, count, layout, numberingPattern, spacing, startX, startY, customPrefix);
+      setPreviewPorts(preview);
+    }
+  };
+
+  // 自动调整端口位置，将超出面板的端口拉回可见区域
+  const handleAutoAdjustPorts = () => {
+    try {
+      const values = addPortGroupForm.getFieldsValue();
+      const { portType, count, layout, numberingPattern, spacing, startX, startY, customPrefix } = values;
+
+      if (!portType || !count || !layout || !numberingPattern || spacing === undefined || startX === undefined || startY === undefined) {
+        message.warning('请先填写完整的表单信息');
+        return;
+      }
+
+      const portSize = getPortSize(portType);
+      let adjustedStartX = startX;
+      let adjustedStartY = startY;
+
+      // 计算端口组的边界
+      if (layout === 'horizontal') {
+        const totalWidth = count * (portSize.width + spacing) - spacing;
+        if (startX + totalWidth > width) {
+          adjustedStartX = Math.max(10, width - totalWidth - 10);
+        }
+        if (startY + portSize.height > height) {
+          adjustedStartY = Math.max(10, height - portSize.height - 10);
+        }
+      } else if (layout === 'vertical') {
+        const totalHeight = count * (portSize.height + spacing) - spacing;
+        if (startX + portSize.width > width) {
+          adjustedStartX = Math.max(10, width - portSize.width - 10);
+        }
+        if (startY + totalHeight > height) {
+          adjustedStartY = Math.max(10, height - totalHeight - 10);
+        }
+      } else if (layout === 'grid') {
+        const cols = numberingPattern === 'switch' ? Math.ceil(count / 2) : Math.ceil(Math.sqrt(count));
+        const rows = Math.ceil(count / cols);
+        const totalWidth = cols * (portSize.width + spacing) - spacing;
+        const totalHeight = rows * (portSize.height + spacing) - spacing;
+
+        if (startX + totalWidth > width) {
+          adjustedStartX = Math.max(10, width - totalWidth - 10);
+        }
+        if (startY + totalHeight > height) {
+          adjustedStartY = Math.max(10, height - totalHeight - 10);
+        }
+      }
+
+      // 更新表单值
+      addPortGroupForm.setFieldsValue({
+        startX: Math.max(10, adjustedStartX),
+        startY: Math.max(10, adjustedStartY),
+      });
+
+      // 更新预览
+      updatePreview({
+        ...values,
+        startX: Math.max(10, adjustedStartX),
+        startY: Math.max(10, adjustedStartY),
+      });
+
+      message.success('已自动调整端口位置到可见区域');
+    } catch (error) {
+      console.error('自动调整失败:', error);
+      message.error('自动调整失败');
+    }
+  };
+
+  const handleConfirmAddPortGroup = () => {
+    addPortGroupForm.validateFields().then((values) => {
+      const { portType, count, layout, numberingPattern, spacing, startX, startY, customPrefix } = values;
+      const newPorts = calculateGridPorts(portType, count, layout, numberingPattern, spacing, startX, startY, customPrefix);
 
       const allPorts = [...ports, ...newPorts];
       setPorts(allPorts);
@@ -580,6 +827,7 @@ export default function PanelCanvasEditor({
 
       setAddPortGroupModalVisible(false);
       addPortGroupForm.resetFields();
+      setPreviewPorts([]);
     });
   };
 
@@ -647,77 +895,170 @@ export default function PanelCanvasEditor({
           onCancel={() => {
             setAddPortGroupModalVisible(false);
             addPortGroupForm.resetFields();
+            setPreviewPorts([]);
           }}
           okText="添加"
           cancelText="取消"
-          width={600}
+          width={900}
         >
-          <Form form={addPortGroupForm} layout="vertical">
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item
-                  name="portType"
-                  label="端口类型"
-                  rules={[{ required: true, message: '请选择端口类型' }]}
-                >
-                  <Select options={portTypeOptionsWithIcons} placeholder="选择端口类型" />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item
-                  name="count"
-                  label="端口数量"
-                  rules={[
-                    { required: true, message: '请输入端口数量' },
-                    { type: 'number', min: 1, max: 100, message: '数量范围：1-100' },
-                  ]}
-                >
-                  <InputNumber style={{ width: '100%' }} placeholder="8" min={1} max={100} />
-                </Form.Item>
-              </Col>
-            </Row>
+          <Row gutter={24}>
+            <Col span={12}>
+              <Form
+                form={addPortGroupForm}
+                layout="vertical"
+                onValuesChange={(_, allValues) => updatePreview(allValues)}
+              >
+                <Row gutter={16}>
+                  <Col span={12}>
+                    <Form.Item
+                      name="portType"
+                      label="端口类型"
+                      rules={[{ required: true, message: '请选择端口类型' }]}
+                    >
+                      <Select options={portTypeOptionsWithIcons} placeholder="选择端口类型" />
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item
+                      name="count"
+                      label="端口数量"
+                      rules={[
+                        { required: true, message: '请输入端口数量' },
+                        { type: 'number', min: 1, max: 100, message: '数量范围：1-100' },
+                      ]}
+                    >
+                      <InputNumber style={{ width: '100%' }} placeholder="8" min={1} max={100} />
+                    </Form.Item>
+                  </Col>
+                </Row>
 
-            <Form.Item
-              name="layout"
-              label="布局方式"
-              rules={[{ required: true, message: '请选择布局方式' }]}
-            >
-              <Select placeholder="选择布局方式">
-                <Option value="horizontal">水平排列</Option>
-                <Option value="vertical">垂直排列</Option>
-                <Option value="grid">网格排列</Option>
-              </Select>
-            </Form.Item>
-
-            <Form.Item
-              name="spacing"
-              label="间距 (mm)"
-              rules={[{ required: true, message: '请输入间距' }]}
-            >
-              <InputNumber style={{ width: '100%' }} placeholder="2" min={0} step={0.5} />
-            </Form.Item>
-
-            <Row gutter={16}>
-              <Col span={12}>
                 <Form.Item
-                  name="startX"
-                  label="起始X坐标 (mm)"
-                  rules={[{ required: true, message: '请输入X坐标' }]}
+                  name="layout"
+                  label="布局方式"
+                  rules={[{ required: true, message: '请选择布局方式' }]}
                 >
-                  <InputNumber style={{ width: '100%' }} placeholder="20" min={0} />
+                  <Select placeholder="选择布局方式">
+                    <Option value="horizontal">水平排列</Option>
+                    <Option value="vertical">垂直排列</Option>
+                    <Option value="grid">网格排列</Option>
+                  </Select>
                 </Form.Item>
-              </Col>
-              <Col span={12}>
+
                 <Form.Item
-                  name="startY"
-                  label="起始Y坐标 (mm)"
-                  rules={[{ required: true, message: '请输入Y坐标' }]}
+                  name="numberingPattern"
+                  label="编号模式"
+                  rules={[{ required: true, message: '请选择编号模式' }]}
+                  tooltip="顺序模式：1 2 3 4 ... | 交换机模式：奇数在上排，偶数在下排（1 3 5 7 / 2 4 6 8）"
                 >
-                  <InputNumber style={{ width: '100%' }} placeholder="20" min={0} />
+                  <Select placeholder="选择编号模式">
+                    <Option value="sequential">顺序模式 (1 2 3 4 ...)</Option>
+                    <Option value="switch">交换机模式 (1 3 5 7 / 2 4 6 8)</Option>
+                  </Select>
                 </Form.Item>
-              </Col>
-            </Row>
-          </Form>
+
+                <Form.Item
+                  name="customPrefix"
+                  label="自定义编号前缀（可选）"
+                  tooltip="使用 Var 作为序号占位符，例如：GigabitEthernet 0/1/Var 将生成 GigabitEthernet 0/1/1、GigabitEthernet 0/1/2..."
+                >
+                  <Input
+                    placeholder="例如：GigabitEthernet 0/1/Var 或 Eth-Var"
+                    allowClear
+                  />
+                </Form.Item>
+
+                <Form.Item
+                  name="spacing"
+                  label="间距 (mm)"
+                  rules={[{ required: true, message: '请输入间距' }]}
+                >
+                  <InputNumber style={{ width: '100%' }} placeholder="2" min={0} step={0.5} />
+                </Form.Item>
+
+                <Row gutter={16}>
+                  <Col span={12}>
+                    <Form.Item
+                      name="startX"
+                      label="起始X坐标 (mm)"
+                      rules={[{ required: true, message: '请输入X坐标' }]}
+                    >
+                      <InputNumber style={{ width: '100%' }} placeholder="20" min={0} />
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item
+                      name="startY"
+                      label="起始Y坐标 (mm)"
+                      rules={[{ required: true, message: '请输入Y坐标' }]}
+                    >
+                      <InputNumber style={{ width: '100%' }} placeholder="20" min={0} />
+                    </Form.Item>
+                  </Col>
+                </Row>
+
+                <Form.Item>
+                  <Button
+                    type="dashed"
+                    block
+                    onClick={handleAutoAdjustPorts}
+                    icon={<BorderOuterOutlined />}
+                  >
+                    自动调整到可见区域
+                  </Button>
+                </Form.Item>
+              </Form>
+            </Col>
+            <Col span={12}>
+              <div style={{ marginBottom: 8, fontWeight: 500 }}>可视化预览</div>
+              <div
+                style={{
+                  border: '1px solid #d9d9d9',
+                  borderRadius: '4px',
+                  backgroundColor: '#fafafa',
+                  padding: '10px',
+                  height: 300,
+                  overflow: 'auto',
+                }}
+              >
+                <PreviewCanvas
+                  width={width}
+                  height={height}
+                  ports={previewPorts}
+                />
+              </div>
+              <div style={{ marginTop: 8, fontSize: 12, color: '#666' }}>
+                面板尺寸: {width}mm × {height}mm
+              </div>
+
+              {/* 端口编号列表预览 */}
+              {previewPorts.length > 0 && (
+                <>
+                  <div style={{ marginTop: 16, marginBottom: 8, fontWeight: 500 }}>端口编号预览</div>
+                  <div
+                    style={{
+                      maxHeight: 150,
+                      overflowY: 'auto',
+                      padding: 12,
+                      backgroundColor: '#f5f5f5',
+                      borderRadius: 4,
+                      border: '1px solid #d9d9d9',
+                    }}
+                  >
+                    <Space wrap size={[8, 8]}>
+                      {previewPorts.map((port, index) => (
+                        <Tag key={index} color="blue">
+                          {port.number}
+                        </Tag>
+                      ))}
+                    </Space>
+                  </div>
+                  <div style={{ marginTop: 8, fontSize: 12, color: '#666' }}>
+                    共 {previewPorts.length} 个端口
+                  </div>
+                </>
+              )}
+            </Col>
+          </Row>
         </Modal>
 
         {/* 工具栏 */}

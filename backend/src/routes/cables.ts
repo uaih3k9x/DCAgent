@@ -13,6 +13,8 @@ const createCableSchema = z.object({
   notes: z.string().optional(),
   portAId: z.string().uuid('Invalid port A ID'),
   portBId: z.string().uuid('Invalid port B ID'),
+  shortIdA: z.number().int().positive('ShortID A must be a positive integer'), // 必须提供
+  shortIdB: z.number().int().positive('ShortID B must be a positive integer'), // 必须提供
 });
 
 const updateCableSchema = z.object({

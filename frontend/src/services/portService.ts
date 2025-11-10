@@ -24,8 +24,8 @@ export const portService = {
   },
 
   // 批量创建端口
-  async createBulk(panelId: string, count: number, prefix?: string): Promise<{ count: number }> {
-    const response = await api.post('/ports/create-bulk', { panelId, count, prefix });
+  async createBulk(panelId: string, count: number, prefix?: string, useCustomPrefix?: boolean): Promise<{ count: number }> {
+    const response = await api.post('/ports/create-bulk', { panelId, count, prefix, useCustomPrefix });
     return response.data;
   },
 

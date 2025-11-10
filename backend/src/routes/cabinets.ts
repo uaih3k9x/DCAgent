@@ -7,6 +7,7 @@ const router = Router();
 // Validation schemas
 const createCabinetSchema = z.object({
   name: z.string().min(1, 'Name is required'),
+  shortId: z.number().int().positive('ShortID must be a positive integer'), // 必须提供shortID
   position: z.string().optional(),
   height: z.number().int().positive().default(42),
   roomId: z.string().uuid('Invalid room ID'),

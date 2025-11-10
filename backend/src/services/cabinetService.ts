@@ -1,10 +1,11 @@
 import { PrismaClient, Cabinet } from '@prisma/client';
-import globalShortIdService from './globalShortIdService';
+import { shortIdPoolService } from './shortIdPoolService';
 
 const prisma = new PrismaClient();
 
 export interface CreateCabinetInput {
   name: string;
+  shortId: number; // 必须提供shortID
   position?: string;
   height?: number;
   roomId: string;
@@ -90,7 +91,13 @@ class CabinetService {
   }
 
   async createCabinet(data: CreateCabinetInput): Promise<Cabinet> {
-    // 先创建实体
+    // 验证shortId是否可用
+    const existingCheck = await shortIdPoolService.checkShortIdExists(data.shortId);
+    if (existingCheck.exists) {
+      throw new Error(`ShortID ${data.shortId} 已被占用: ${existingCheck.usedBy === 'pool' ? '在标签池中' : '已绑定到实体'}`);
+    }
+
+    // 创建机柜
     const cabinet = await prisma.cabinet.create({
       data,
       include: {
@@ -103,22 +110,10 @@ class CabinetService {
       },
     });
 
-    // 分配全局唯一的 shortId
-    const shortId = await globalShortIdService.allocate('Cabinet', cabinet.id);
+    // 绑定shortID到池中
+    await shortIdPoolService.bindShortIdToEntity(data.shortId, 'CABINET', cabinet.id);
 
-    // 更新实体的 shortId
-    return prisma.cabinet.update({
-      where: { id: cabinet.id },
-      data: { shortId },
-      include: {
-        room: {
-          include: {
-            dataCenter: true,
-          },
-        },
-        devices: true,
-      },
-    });
+    return cabinet;
   }
 
   async updateCabinet(id: string, data: UpdateCabinetInput): Promise<Cabinet> {
@@ -137,20 +132,28 @@ class CabinetService {
   }
 
   async deleteCabinet(id: string): Promise<Cabinet> {
-    // 先获取实体的 shortId
+    // 先获取机柜的shortId
     const cabinet = await prisma.cabinet.findUnique({
       where: { id },
       select: { shortId: true },
     });
 
-    // 删除实体
+    // 删除机柜
     const deleted = await prisma.cabinet.delete({
       where: { id },
     });
 
-    // 释放 shortId
+    // 将shortID标记为可重新使用
     if (cabinet?.shortId) {
-      await globalShortIdService.release(cabinet.shortId);
+      await prisma.shortIdPool.updateMany({
+        where: { shortId: cabinet.shortId },
+        data: {
+          status: 'GENERATED',
+          entityType: null,
+          entityId: null,
+          boundAt: null,
+        },
+      });
     }
 
     return deleted;

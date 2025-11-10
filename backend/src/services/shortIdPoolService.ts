@@ -179,17 +179,9 @@ export class ShortIdPoolService {
       };
     }
 
-    // 检查所有实体表
-    const [cable, port, device, cabinet, room, dataCenter] = await Promise.all([
-      prisma.cable.findUnique({
-        where: { shortId },
-        select: { id: true, label: true, type: true, inventoryStatus: true },
-      }),
-      prisma.port.findUnique({
-        where: { shortId },
-        select: { id: true, number: true, label: true, status: true },
-      }),
-      prisma.device.findUnique({
+    // 检查所有有 shortId 字段的实体表
+    const [panel, cabinet, room] = await Promise.all([
+      prisma.panel.findUnique({
         where: { shortId },
         select: { id: true, name: true, type: true },
       }),
@@ -201,29 +193,16 @@ export class ShortIdPoolService {
         where: { shortId },
         select: { id: true, name: true },
       }),
-      prisma.dataCenter.findUnique({
-        where: { shortId },
-        select: { id: true, name: true },
-      }),
     ]);
 
-    if (cable) {
-      return { exists: true, usedBy: 'entity', entityType: 'CABLE', details: cable };
-    }
-    if (port) {
-      return { exists: true, usedBy: 'entity', entityType: 'PORT', details: port };
-    }
-    if (device) {
-      return { exists: true, usedBy: 'entity', entityType: 'DEVICE', details: device };
+    if (panel) {
+      return { exists: true, usedBy: 'entity', entityType: 'PANEL', details: panel };
     }
     if (cabinet) {
       return { exists: true, usedBy: 'entity', entityType: 'CABINET', details: cabinet };
     }
     if (room) {
       return { exists: true, usedBy: 'entity', entityType: 'ROOM', details: room };
-    }
-    if (dataCenter) {
-      return { exists: true, usedBy: 'entity', entityType: 'DATA_CENTER', details: dataCenter };
     }
 
     return {

@@ -7,6 +7,7 @@ const router = Router();
 // Validation schemas
 const createRoomSchema = z.object({
   name: z.string().min(1, 'Name is required'),
+  shortId: z.number().int().positive('ShortID must be a positive integer'), // 必须提供shortID
   floor: z.string().optional(),
   dataCenterId: z.string().uuid('Invalid datacenter ID'),
 });

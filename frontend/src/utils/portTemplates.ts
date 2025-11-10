@@ -25,6 +25,7 @@ export enum PortNumberingPattern {
   CISCO_SHORT = 'CISCO_SHORT',            // Gi0/0/1
   HUAWEI = 'HUAWEI',                      // GE1/0/1
   HP = 'HP',                              // 1/1/1
+  CUSTOM = 'CUSTOM',                      // 自定义前缀，支持 Var 变量
 }
 
 // 端口组模板接口
@@ -236,6 +237,7 @@ export function generatePortNumber(
   pattern: PortNumberingPattern,
   options?: {
     prefix?: string;
+    customPrefix?: string;
     slot?: number;
     module?: number;
     card?: number;
@@ -262,6 +264,13 @@ export function generatePortNumber(
     case PortNumberingPattern.HP:
       return `${options?.slot || 1}/${options?.module || 1}/${portNum}`;
 
+    case PortNumberingPattern.CUSTOM:
+      // 支持自定义前缀，使用 Var 作为序号占位符
+      if (options?.customPrefix) {
+        return options.customPrefix.replace(/Var/g, String(portNum));
+      }
+      return String(portNum);
+
     default:
       return String(portNum);
   }
@@ -274,6 +283,7 @@ export function generatePortsFromTemplate(
   template: PortGroupTemplate,
   options?: {
     prefix?: string;
+    customPrefix?: string;
     slot?: number;
     module?: number;
     card?: number;
@@ -300,8 +310,14 @@ export function generatePortsFromTemplate(
     const positionY =
       template.layout.startY + row * (portSize.height + template.layout.verticalGap);
 
-    const portNumber = generatePortNumber(i + startNum, template.numberingPattern, {
+    // 如果提供了自定义前缀，使用 CUSTOM 模式，否则使用模板的编号模式
+    const numberingPattern = options?.customPrefix
+      ? PortNumberingPattern.CUSTOM
+      : template.numberingPattern;
+
+    const portNumber = generatePortNumber(i + startNum, numberingPattern, {
       prefix: options?.prefix || template.defaultPrefix,
+      customPrefix: options?.customPrefix,
       slot: options?.slot,
       module: options?.module,
       card: options?.card,

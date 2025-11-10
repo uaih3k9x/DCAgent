@@ -42,6 +42,7 @@ import {
   CloudServerOutlined,
   SendOutlined,
   CopyOutlined,
+  ScanOutlined,
 } from '@ant-design/icons';
 import { Cabinet, Room, DataCenter, Device, DeviceType, Panel, Port } from '@/types';
 import { cabinetService } from '@/services/cabinetService';
@@ -51,6 +52,7 @@ import { deviceService } from '@/services/deviceService';
 import { panelService } from '@/services/panelService';
 import { portService } from '@/services/portService';
 import { panelTemplateService } from '@/services/panelTemplateService';
+import { shortIdPoolService } from '@/services/shortIdPoolService';
 import { CabinetVisualizer, ViewMode, CabinetVisualizerHandle } from '@/components/CabinetVisualizer';
 import { CabinetThumbnail } from '@/components/CabinetThumbnail';
 import { PanelVisualizer } from '@/components/PanelVisualizer';
@@ -116,6 +118,7 @@ export default function CabinetList() {
   });
   const [form] = Form.useForm();
   const [deviceForm] = Form.useForm();
+  const [shortIdChecking, setShortIdChecking] = useState(false);
   const [deviceTransferVisible, setDeviceTransferVisible] = useState(false);
   const [deviceCopyVisible, setDeviceCopyVisible] = useState(false);
   const [selectedDeviceForAction, setSelectedDeviceForAction] = useState<Device | null>(null);
@@ -273,6 +276,31 @@ export default function CabinetList() {
       }
       message.error(editingCabinet ? t('messages.updateFailed') : t('messages.createFailed'));
       console.error(error);
+    }
+  };
+
+  // 验证shortID是否可用
+  const validateShortId = async (_: any, value: number) => {
+    if (!value) {
+      return Promise.reject('请输入shortID');
+    }
+
+    // 如果是编辑模式且shortID未改变，跳过验证
+    if (editingCabinet && editingCabinet.shortId === value) {
+      return Promise.resolve();
+    }
+
+    setShortIdChecking(true);
+    try {
+      const result = await shortIdPoolService.checkShortIdExists(value);
+      if (result.exists) {
+        return Promise.reject(`shortID已被占用: ${result.usedBy === 'pool' ? '在标签池中' : '已绑定到实体'}`);
+      }
+      return Promise.resolve();
+    } catch (error) {
+      return Promise.reject('验证失败');
+    } finally {
+      setShortIdChecking(false);
     }
   };
 
@@ -1067,6 +1095,28 @@ export default function CabinetList() {
         cancelText={t('buttons.cancel')}
       >
         <Form form={form} layout="vertical">
+          <Form.Item
+            name="shortId"
+            label={
+              <Space>
+                <ScanOutlined />
+                ShortID
+              </Space>
+            }
+            rules={[
+              { required: true, message: '请输入shortID' },
+              { validator: validateShortId },
+            ]}
+            validateTrigger="onBlur"
+            help={editingCabinet ? '编辑时不可修改shortID' : '请扫码或手动输入shortID'}
+          >
+            <InputNumber
+              style={{ width: '100%' }}
+              placeholder="扫码或输入shortID（例如：1, 12345）"
+              disabled={!!editingCabinet}
+              min={1}
+            />
+          </Form.Item>
           <Form.Item
             name="name"
             label={t('labels.cabinetName')}

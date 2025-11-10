@@ -92,6 +92,12 @@ export default function PortManagementPage() {
   const [templateModalVisible, setTemplateModalVisible] = useState(false);
   const [editingPort, setEditingPort] = useState<Port | null>(null);
 
+  // 端口组预览
+  const [portPreview, setPortPreview] = useState<string[]>([]);
+
+  // 批量创建预览
+  const [bulkCreatePreview, setBulkCreatePreview] = useState<string[]>([]);
+
   // 扫码跳转相关状态
   const [highlightedPortId, setHighlightedPortId] = useState<string | null>(null);
 
@@ -302,10 +308,14 @@ export default function PortManagementPage() {
   const handleBulkCreate = async () => {
     try {
       const values = await bulkCreateForm.validateFields();
-      await portService.createBulk(values.panelId, values.count, values.prefix);
+      const customPrefix = values.customPrefix;
+      const prefix = customPrefix || values.prefix || 'Port-';
+
+      await portService.createBulk(values.panelId, values.count, prefix, customPrefix ? true : false);
       message.success(`成功创建 ${values.count} 个端口`);
       setBulkCreateModalVisible(false);
       bulkCreateForm.resetFields();
+      setBulkCreatePreview([]);
       loadPorts(undefined, selectedPanelId, selectedStatus);
     } catch (error: any) {
       if (error.errorFields) return;
@@ -361,6 +371,32 @@ export default function PortManagementPage() {
     if (!selectedPanel) return;
     templateForm.resetFields();
     setTemplateModalVisible(true);
+    setPortPreview([]);
+  };
+
+  // 更新端口预览
+  const updatePortPreview = () => {
+    try {
+      const values = templateForm.getFieldsValue();
+      const template = PORT_GROUP_TEMPLATES.find((t) => t.id === values.templateId);
+      if (!template) {
+        setPortPreview([]);
+        return;
+      }
+
+      const portsConfig = generatePortsFromTemplate(template, {
+        customPrefix: values.customPrefix,
+        slot: values.slot,
+        module: values.module,
+        card: values.card,
+        startNumber: values.startNumber || 0,
+      });
+
+      const portNumbers = portsConfig.map((p) => p.number);
+      setPortPreview(portNumbers);
+    } catch (error) {
+      setPortPreview([]);
+    }
   };
 
   // 应用端口组模板
@@ -376,6 +412,7 @@ export default function PortManagementPage() {
 
       // 生成端口配置
       const portsConfig = generatePortsFromTemplate(template, {
+        customPrefix: values.customPrefix,
         slot: values.slot,
         module: values.module,
         card: values.card,
@@ -425,6 +462,31 @@ export default function PortManagementPage() {
     bulkCreateForm.resetFields();
     bulkCreateForm.setFieldsValue({ panelId: selectedPanel.id });
     setBulkCreateModalVisible(true);
+    setBulkCreatePreview([]);
+  };
+
+  // 更新批量创建预览
+  const updateBulkCreatePreview = () => {
+    try {
+      const values = bulkCreateForm.getFieldsValue();
+      const count = values.count || 24;
+      const customPrefix = values.customPrefix;
+
+      const portNumbers: string[] = [];
+      for (let i = 1; i <= count; i++) {
+        if (customPrefix) {
+          // 使用自定义前缀，替换 Var 为序号
+          portNumbers.push(customPrefix.replace(/Var/g, String(i)));
+        } else {
+          // 使用旧的 prefix 方式
+          const prefix = values.prefix || 'Port-';
+          portNumbers.push(`${prefix}${i}`);
+        }
+      }
+      setBulkCreatePreview(portNumbers);
+    } catch (error) {
+      setBulkCreatePreview([]);
+    }
   };
 
   // 按设备分组面板
@@ -503,12 +565,6 @@ export default function PortManagementPage() {
 
             <Table
               columns={[
-                {
-                  title: 'ID',
-                  dataIndex: 'shortId',
-                  key: 'shortId',
-                  width: 80,
-                },
                 {
                   title: '端口号',
                   dataIndex: 'number',
@@ -901,8 +957,9 @@ export default function PortManagementPage() {
         onCancel={() => setBulkCreateModalVisible(false)}
         okText="创建"
         cancelText="取消"
+        width={800}
       >
-        <Form form={bulkCreateForm} layout="vertical">
+        <Form form={bulkCreateForm} layout="vertical" onValuesChange={updateBulkCreatePreview}>
           <Form.Item
             name="panelId"
             label="所属面板"
@@ -930,11 +987,60 @@ export default function PortManagementPage() {
           >
             <InputNumber min={1} max={128} style={{ width: '100%' }} />
           </Form.Item>
-          <Form.Item name="prefix" label="标签前缀" initialValue="Port-">
+
+          <Divider>端口编号设置</Divider>
+
+          <Form.Item
+            name="customPrefix"
+            label="自定义前缀（推荐）"
+            tooltip="使用 Var 作为序号占位符，例如：GigabitEthernet 0/1/Var 将生成 GigabitEthernet 0/1/1、GigabitEthernet 0/1/2..."
+          >
+            <Input
+              placeholder="例如：GigabitEthernet 0/1/Var 或 Eth-Var"
+              allowClear
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="prefix"
+            label="简单前缀（旧方式）"
+            initialValue="Port-"
+            tooltip="如果未设置自定义前缀，将使用此前缀 + 序号的方式"
+          >
             <Input placeholder="例如：Port-" />
           </Form.Item>
-          <p style={{ color: '#8c8c8c', fontSize: '12px' }}>
-            将创建编号为 1 到 {bulkCreateForm.getFieldValue('count') || 24} 的端口，标签格式为 {bulkCreateForm.getFieldValue('prefix') || 'Port-'}1, {bulkCreateForm.getFieldValue('prefix') || 'Port-'}2, ...
+
+          {/* 预览区域 */}
+          {bulkCreatePreview.length > 0 && (
+            <>
+              <Divider>端口编号预览</Divider>
+              <div
+                style={{
+                  maxHeight: 200,
+                  overflowY: 'auto',
+                  padding: 12,
+                  backgroundColor: '#f5f5f5',
+                  borderRadius: 4,
+                }}
+              >
+                <Space wrap size={[8, 8]}>
+                  {bulkCreatePreview.slice(0, 50).map((portNum, index) => (
+                    <Tag key={index} color="blue">
+                      {portNum}
+                    </Tag>
+                  ))}
+                  {bulkCreatePreview.length > 50 && (
+                    <Tag color="default">...还有 {bulkCreatePreview.length - 50} 个端口</Tag>
+                  )}
+                </Space>
+              </div>
+            </>
+          )}
+
+          <p style={{ color: '#8c8c8c', fontSize: '12px', marginTop: 16 }}>
+            {bulkCreatePreview.length > 0
+              ? `当前将创建 ${bulkCreatePreview.length} 个端口`
+              : `将创建编号为 1 到 ${bulkCreateForm.getFieldValue('count') || 24} 的端口`}
           </p>
         </Form>
       </Modal>
@@ -1036,9 +1142,9 @@ export default function PortManagementPage() {
         open={templateModalVisible}
         onOk={handleApplyTemplate}
         onCancel={() => setTemplateModalVisible(false)}
-        width={700}
+        width={900}
       >
-        <Form form={templateForm} layout="vertical">
+        <Form form={templateForm} layout="vertical" onValuesChange={updatePortPreview}>
           <Form.Item
             name="templateId"
             label="选择模板"
@@ -1066,9 +1172,22 @@ export default function PortManagementPage() {
             </Select>
           </Form.Item>
 
+          <Divider>自定义前缀（可选）</Divider>
+
+          <Form.Item
+            name="customPrefix"
+            label="端口编号前缀"
+            tooltip="使用 Var 作为序号占位符，例如：GigabitEthernet 0/1/Var 将生成 GigabitEthernet 0/1/1、GigabitEthernet 0/1/2..."
+          >
+            <Input
+              placeholder="例如：GigabitEthernet 0/1/Var 或 Eth-Var"
+              allowClear
+            />
+          </Form.Item>
+
           <Divider>编号参数（可选）</Divider>
 
-          <Space style={{ width: '100%' }} size="large">
+          <Space style={{ width: '100%' }} size="large" wrap>
             <Form.Item name="slot" label="Slot" initialValue={1}>
               <InputNumber min={0} max={99} placeholder="1" />
             </Form.Item>
@@ -1083,8 +1202,36 @@ export default function PortManagementPage() {
             </Form.Item>
           </Space>
 
+          {/* 预览区域 */}
+          {portPreview.length > 0 && (
+            <>
+              <Divider>端口编号预览</Divider>
+              <div
+                style={{
+                  maxHeight: 200,
+                  overflowY: 'auto',
+                  padding: 12,
+                  backgroundColor: '#f5f5f5',
+                  borderRadius: 4,
+                }}
+              >
+                <Space wrap size={[8, 8]}>
+                  {portPreview.slice(0, 50).map((portNum, index) => (
+                    <Tag key={index} color="blue">
+                      {portNum}
+                    </Tag>
+                  ))}
+                  {portPreview.length > 50 && (
+                    <Tag color="default">...还有 {portPreview.length - 50} 个端口</Tag>
+                  )}
+                </Space>
+              </div>
+            </>
+          )}
+
           <p style={{ color: '#8c8c8c', fontSize: 12, marginTop: 16 }}>
             提示：模板将自动设置端口的物理位置和面板尺寸。不同的编号模式会生成不同格式的端口号。
+            {portPreview.length > 0 && `当前将创建 ${portPreview.length} 个端口。`}
           </p>
         </Form>
       </Modal>
