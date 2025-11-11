@@ -27,12 +27,11 @@ export function navigateToEntity(
       break;
 
     case 'Cabinet':
-      // 跳转到机柜列表页的可视化tab
-      path = '/cabinets';
-      state = {
-        selectedId: id,
-        activeTab: 'visual', // 直接跳转到可视化tab
-      };
+      // 跳转到机柜可视化页面，使用 URL 参数
+      // cabinetId: 指定要展示的机柜
+      // view=visual: 指定进入可视化视图
+      path = `/cabinets?cabinetId=${id}&view=visual`;
+      state = {};
       break;
 
     case 'Device':

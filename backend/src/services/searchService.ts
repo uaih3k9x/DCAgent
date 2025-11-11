@@ -159,9 +159,11 @@ class SearchService {
       if (allocation) {
         const { entityType, entityId } = allocation;
 
-        // 2. 根据实体类型获取完整数据
-        switch (entityType) {
-        case 'Room': {
+        // 2. 根据实体类型获取完整数据（支持大写和 Pascal Case）
+        const normalizedType = entityType.toUpperCase();
+
+        switch (normalizedType) {
+        case 'ROOM': {
           const room = await prisma.room.findUnique({
             where: { id: entityId },
           });
@@ -176,7 +178,7 @@ class SearchService {
           };
         }
 
-        case 'Cabinet': {
+        case 'CABINET': {
           const cabinet = await prisma.cabinet.findUnique({
             where: { id: entityId },
           });
@@ -191,7 +193,7 @@ class SearchService {
           };
         }
 
-        case 'Panel': {
+        case 'PANEL': {
           const panel = await prisma.panel.findUnique({
             where: { id: entityId },
           });
@@ -206,7 +208,7 @@ class SearchService {
           };
         }
 
-        case 'Port': {
+        case 'PORT': {
           const port = await prisma.port.findUnique({
             where: { id: entityId },
           });
@@ -222,7 +224,7 @@ class SearchService {
         }
 
         case 'CABLE_ENDPOINT':
-        case 'CableEndpoint': {
+        case 'CABLEENDPOINT': {
           const endpoint = await prisma.cableEndpoint.findUnique({
             where: { id: entityId },
             include: {

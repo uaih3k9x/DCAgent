@@ -175,11 +175,12 @@ export default function CabinetList() {
     loadCabinets();
   }, []);
 
-  // 处理 URL 参数（扫码跳转）
+  // 处理 URL 参数（扫码跳转和全局搜索跳转）
   useEffect(() => {
     const cabinetId = searchParams.get('cabinetId');
     const roomId = searchParams.get('roomId');
     const tab = searchParams.get('tab');
+    const view = searchParams.get('view');
 
     if (roomId) {
       // 如果有 roomId，筛选该机房
@@ -194,8 +195,8 @@ export default function CabinetList() {
         setSelectedCabinet(cabinet);
         setHighlightedCabinetId(cabinetId);
 
-        // 如果指定了 tab=visual，自动切换到可视化视图
-        if (tab === 'visual') {
+        // 如果指定了 tab=visual 或 view=visual，自动切换到可视化视图
+        if (tab === 'visual' || view === 'visual') {
           setActiveTab('visual');
         }
 
