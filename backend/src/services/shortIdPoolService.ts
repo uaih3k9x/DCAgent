@@ -26,20 +26,18 @@ export class ShortIdPoolService {
     });
 
     // 从所有有shortId字段的实体表查找最大shortID（因为shortId是全局唯一的）
-    const [cabinet, room, panel, cableEndpoint, globalAllocation] = await Promise.all([
+    const [cabinet, room, panel, cableEndpoint] = await Promise.all([
       prisma.cabinet.findFirst({ orderBy: { shortId: 'desc' }, select: { shortId: true } }),
       prisma.room.findFirst({ orderBy: { shortId: 'desc' }, select: { shortId: true } }),
       prisma.panel.findFirst({ orderBy: { shortId: 'desc' }, select: { shortId: true } }),
       prisma.cableEndpoint.findFirst({ orderBy: { shortId: 'desc' }, select: { shortId: true } }),
-      prisma.globalShortIdAllocation.findFirst({ orderBy: { shortId: 'desc' }, select: { shortId: true } }),
     ]);
 
     const maxEntityShortId = Math.max(
       cabinet?.shortId || 0,
       room?.shortId || 0,
       panel?.shortId || 0,
-      cableEndpoint?.shortId || 0,
-      globalAllocation?.shortId || 0
+      cableEndpoint?.shortId || 0
     );
 
     const currentMax = Math.max(maxPoolShortId?.shortId || 0, maxEntityShortId);
@@ -465,12 +463,11 @@ export class ShortIdPoolService {
             select: { shortId: true },
           });
 
-          const [cabinet, room, panel, cableEndpoint, globalAllocation] = await Promise.all([
+          const [cabinet, room, panel, cableEndpoint] = await Promise.all([
             tx.cabinet.findFirst({ orderBy: { shortId: 'desc' }, select: { shortId: true } }),
             tx.room.findFirst({ orderBy: { shortId: 'desc' }, select: { shortId: true } }),
             tx.panel.findFirst({ orderBy: { shortId: 'desc' }, select: { shortId: true } }),
             tx.cableEndpoint.findFirst({ orderBy: { shortId: 'desc' }, select: { shortId: true } }),
-            tx.globalShortIdAllocation.findFirst({ orderBy: { shortId: 'desc' }, select: { shortId: true } }),
           ]);
 
           const currentMax = Math.max(
@@ -478,8 +475,7 @@ export class ShortIdPoolService {
             cabinet?.shortId || 0,
             room?.shortId || 0,
             panel?.shortId || 0,
-            cableEndpoint?.shortId || 0,
-            globalAllocation?.shortId || 0
+            cableEndpoint?.shortId || 0
           );
 
           shortId = currentMax + 1;
@@ -506,54 +502,18 @@ export class ShortIdPoolService {
         },
       });
 
-      // 同时更新GlobalShortIdAllocation
-      // 先检查是否已存在
-      const existingAllocation = await tx.globalShortIdAllocation.findUnique({
-        where: { shortId },
-      });
-
-      if (!existingAllocation) {
-        // 转换EntityType到globalShortIdService的类型
-        const globalEntityType = entityType as any;
-        await tx.globalShortIdAllocation.create({
-          data: {
-            shortId,
-            entityType: globalEntityType,
-            entityId,
-          },
-        });
-
-        // 更新全局序列
-        const sequence = await tx.globalShortIdSequence.findFirst();
-        if (sequence && shortId >= sequence.currentValue) {
-          await tx.globalShortIdSequence.update({
-            where: { id: sequence.id },
-            data: { currentValue: shortId + 1 },
-          });
-        } else if (!sequence) {
-          await tx.globalShortIdSequence.create({
-            data: { currentValue: shortId + 1 },
-          });
-        }
-      }
-
       return shortId;
     });
   }
 
   /**
    * 释放shortID（删除实体时调用）
-   * 同时清理GlobalShortIdAllocation和重置ShortIdPool状态
+   * 重置ShortIdPool状态为GENERATED（可重新使用）
    * @param shortId 要释放的shortID
    */
   async releaseShortId(shortId: number): Promise<void> {
     await prisma.$transaction(async (tx) => {
-      // 1. 从GlobalShortIdAllocation中删除
-      await tx.globalShortIdAllocation.deleteMany({
-        where: { shortId },
-      });
-
-      // 2. 重置ShortIdPool状态为GENERATED（可重新使用）
+      // 重置ShortIdPool状态为GENERATED（可重新使用）
       await tx.shortIdPool.updateMany({
         where: { shortId },
         data: {

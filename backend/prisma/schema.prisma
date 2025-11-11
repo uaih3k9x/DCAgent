@@ -303,27 +303,10 @@ model CableShortIdPool {
 }
 
 // ============================================
-// 全局 ShortID 管理系统
+// 全局 ShortID 管理系统（已废弃，统一使用 ShortIdPool）
 // ============================================
-
-// 全局 ShortID 序列表（单行表，用于生成全局唯一的 shortId）
-model GlobalShortIdSequence {
-  id           String   @id @default(uuid())
-  currentValue Int      @default(1) // 当前序列值
-  updatedAt    DateTime @updatedAt
-}
-
-// 全局 ShortID 分配记录表
-model GlobalShortIdAllocation {
-  id         String   @id @default(uuid())
-  shortId    Int      @unique // 全局唯一的 shortId
-  entityType String   // 实体类型：DataCenter, Room, Cabinet, Device, Port, Cable, Panel
-  entityId   String   // 实体的 UUID
-  createdAt  DateTime @default(now())
-
-  @@index([entityType])
-  @@index([entityId])
-}
+// GlobalShortIdSequence 和 GlobalShortIdAllocation 已迁移到 ShortIdPool
+// 详见 ShortID池管理系统
 
 // ============================================
 // 光模块管理系统

@@ -110,9 +110,19 @@ const cableTypeColors: Record<string, string> = {
 
 // 获取设备位置信息的辅助函数
 const getDeviceLocation = (device: Device, cabinets: Cabinet[], rooms: Room[]) => {
-  if (!device?.cabinetId) return null;
+  if (!device?.cabinetId) {
+    console.log('Device missing cabinetId:', device);
+    return null;
+  }
   const cabinet = cabinets.find(c => c.id === device.cabinetId);
-  if (!cabinet) return null;
+  if (!cabinet) {
+    console.log('Cabinet not found for device:', {
+      deviceName: device.name,
+      cabinetId: device.cabinetId,
+      availableCabinets: cabinets.map(c => ({ id: c.id, name: c.name }))
+    });
+    return null;
+  }
 
   // 查找机房信息
   const room = rooms.find(r => r.id === cabinet.roomId);
@@ -135,6 +145,17 @@ function DeviceNode({ data }: { data: any }) {
   const deviceColor = nodeTypeColors[device?.type || 'OTHER'] || '#8c8c8c';
   const location = getDeviceLocation(device, cabinets, rooms || []);
   const isHighlighted = highlightedNodeIds?.includes(panel?.id);
+
+  // 调试信息
+  if (!location && device) {
+    console.log('Location not found for device:', {
+      deviceName: device.name,
+      deviceId: device.id,
+      cabinetId: device.cabinetId,
+      cabinetsCount: cabinets?.length,
+      roomsCount: rooms?.length,
+    });
+  }
 
   return (
     <div

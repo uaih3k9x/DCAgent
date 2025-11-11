@@ -1,6 +1,7 @@
 import prisma from '../utils/prisma';
 import { PanelType } from '@prisma/client';
-import { shortIdPoolService } from './shortIdPoolService';
+import globalShortIdService from './globalShortIdService';
+import shortIdPoolService from './shortIdPoolService';
 
 export interface CreatePanelDto {
   name: string;
@@ -49,7 +50,7 @@ export interface UpdatePanelDto {
 
 class PanelService {
   async createPanel(data: CreatePanelDto) {
-    // 使用 shortIdPoolService 分配 shortId
+    // 使用 shortIdPoolService 分配 shortId（统一使用 ShortIDPool）
     const allocatedShortId = await shortIdPoolService.allocateShortId('PANEL', '', data.shortId);
 
     // 从data中提取shortId，避免覆盖allocatedShortId
@@ -67,7 +68,7 @@ class PanelService {
       },
     });
 
-    // 更新 shortIdPool 中的 entityId
+    // 更新 ShortIdPool 中的 entityId
     await prisma.shortIdPool.updateMany({
       where: { shortId: allocatedShortId },
       data: { entityId: panel.id },
