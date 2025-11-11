@@ -13,6 +13,7 @@ export interface CreateCabinetInput {
 
 export interface UpdateCabinetInput {
   name?: string;
+  shortId?: number;
   position?: string;
   height?: number;
 }
@@ -123,6 +124,33 @@ class CabinetService {
   }
 
   async updateCabinet(id: string, data: UpdateCabinetInput): Promise<Cabinet> {
+    // 如果要更新 shortId，需要处理 shortId 的分配和释放
+    if (data.shortId !== undefined) {
+      // 获取当前机柜的 shortId
+      const currentCabinet = await prisma.cabinet.findUnique({
+        where: { id },
+        select: { shortId: true },
+      });
+
+      if (!currentCabinet) {
+        throw new Error('Cabinet not found');
+      }
+
+      const oldShortId = currentCabinet.shortId;
+      const newShortId = data.shortId;
+
+      // 如果 shortId 发生了变化
+      if (oldShortId !== newShortId) {
+        // 分配新的 shortId
+        await shortIdPoolService.allocateShortId('CABINET', id, newShortId);
+
+        // 释放旧的 shortId
+        if (oldShortId) {
+          await shortIdPoolService.releaseShortId(oldShortId);
+        }
+      }
+    }
+
     return prisma.cabinet.update({
       where: { id },
       data,

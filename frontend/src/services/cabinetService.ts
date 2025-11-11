@@ -16,13 +16,13 @@ export const cabinetService = {
   },
 
   // 创建机柜
-  async create(data: { name: string; position?: string; height?: number; roomId: string }): Promise<Cabinet> {
+  async create(data: { name: string; shortId: number; position?: string; height?: number; roomId: string }): Promise<Cabinet> {
     const response = await api.post('/cabinets/create', data);
     return response.data;
   },
 
   // 更新机柜
-  async update(id: string, data: { name?: string; position?: string; height?: number }): Promise<Cabinet> {
+  async update(id: string, data: { name?: string; shortId?: number; position?: string; height?: number }): Promise<Cabinet> {
     const response = await api.post('/cabinets/update', { id, ...data });
     return response.data;
   },

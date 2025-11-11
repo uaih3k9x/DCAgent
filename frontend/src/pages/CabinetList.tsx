@@ -242,7 +242,11 @@ export default function CabinetList() {
   const handleOpenModal = (cabinet?: Cabinet) => {
     if (cabinet) {
       setEditingCabinet(cabinet);
-      form.setFieldsValue(cabinet);
+      // 编辑模式：将数字shortID转换为显示格式
+      form.setFieldsValue({
+        ...cabinet,
+        shortId: cabinet.shortId ? ShortIdFormatter.toDisplayFormat(cabinet.shortId) : undefined,
+      });
     } else {
       setEditingCabinet(null);
       form.resetFields();
@@ -261,15 +265,39 @@ export default function CabinetList() {
   const handleSave = async () => {
     try {
       const values = await form.validateFields();
+
+      // 处理shortID：转换为数字格式
+      let numericShortId: number | undefined = undefined;
+      if (values.shortId && typeof values.shortId === 'string' && values.shortId.trim()) {
+        try {
+          numericShortId = ShortIdFormatter.toNumericFormat(values.shortId.trim());
+        } catch (error) {
+          message.error('shortID格式无效，请使用 E-XXXXX 格式或纯数字');
+          return;
+        }
+      } else if (typeof values.shortId === 'number') {
+        numericShortId = values.shortId;
+      }
+
+      const saveData = {
+        ...values,
+        shortId: numericShortId,
+      };
+
       if (editingCabinet) {
-        await cabinetService.update(editingCabinet.id, values);
+        const updated = await cabinetService.update(editingCabinet.id, saveData);
         message.success(t('messages.updateSuccess'));
+        // 如果更新的是当前选中的机柜，同步更新 selectedCabinet
+        if (selectedCabinet && selectedCabinet.id === editingCabinet.id) {
+          setSelectedCabinet(updated);
+        }
       } else {
-        await cabinetService.create(values);
+        await cabinetService.create(saveData);
         message.success(t('messages.createSuccess'));
       }
       handleCloseModal();
-      loadCabinets(undefined, selectedRoom);
+      // 重新加载机柜列表，确保数据刷新
+      await loadCabinets(undefined, selectedRoom);
     } catch (error: any) {
       if (error.errorFields) {
         return;
@@ -280,24 +308,45 @@ export default function CabinetList() {
   };
 
   // 验证shortID是否可用
-  const validateShortId = async (_: any, value: number) => {
-    if (!value) {
+  const validateShortId = async (_: any, value: string) => {
+    if (!value || !value.trim()) {
       return Promise.reject('请输入shortID');
-    }
-
-    // 如果是编辑模式且shortID未改变，跳过验证
-    if (editingCabinet && editingCabinet.shortId === value) {
-      return Promise.resolve();
     }
 
     setShortIdChecking(true);
     try {
-      const result = await shortIdPoolService.checkShortIdExists(value);
+      // 转换为数字格式
+      const numericShortId = ShortIdFormatter.toNumericFormat(value.trim());
+
+      // 如果是编辑模式且shortID未改变，跳过验证
+      if (editingCabinet && editingCabinet.shortId === numericShortId) {
+        return Promise.resolve();
+      }
+
+      const result = await shortIdPoolService.checkShortIdExists(numericShortId);
       if (result.exists) {
-        return Promise.reject(`shortID已被占用: ${result.usedBy === 'pool' ? '在标签池中' : '已绑定到实体'}`);
+        // 如果是在Pool中
+        if (result.usedBy === 'pool') {
+          // 检查是否已经分配给其他实体（entityId 不为空且不是当前机柜）
+          if (result.details?.entityId) {
+            // 如果是编辑模式，且这个shortID已经分配给当前机柜，允许使用
+            if (editingCabinet && result.details.entityId === editingCabinet.id && result.details.entityType === 'CABINET') {
+              return Promise.resolve();
+            }
+            // 否则说明已经分配给其他实体了
+            return Promise.reject(`shortID已分配给其他${result.details.entityType || '实体'}`);
+          }
+          // entityId 为空，说明只是在池中，状态是GENERATED或PRINTED，可以使用
+          return Promise.resolve();
+        }
+        // 如果已经绑定到其他实体（在实体表中找到）
+        return Promise.reject(`shortID已被占用: ${result.entityType || '实体'}`);
       }
       return Promise.resolve();
-    } catch (error) {
+    } catch (error: any) {
+      if (error.message && error.message.includes('无效的shortID格式')) {
+        return Promise.reject('shortID格式无效，请使用 E-XXXXX 格式或纯数字');
+      }
       return Promise.reject('验证失败');
     } finally {
       setShortIdChecking(false);
@@ -658,7 +707,8 @@ export default function CabinetList() {
       title: t('fields.shortId'),
       dataIndex: 'shortId',
       key: 'shortId',
-      width: 80,
+      width: 100,
+      render: (shortId: number) => shortId ? ShortIdFormatter.toDisplayFormat(shortId) : '-',
     },
     {
       title: t('fields.name'),
@@ -1149,13 +1199,9 @@ export default function CabinetList() {
               { validator: validateShortId },
             ]}
             validateTrigger="onBlur"
-            help={editingCabinet ? '编辑时不可修改shortID' : '请扫码或手动输入shortID'}
           >
-            <InputNumber
-              style={{ width: '100%' }}
-              placeholder="扫码或输入shortID（例如：1, 12345）"
-              disabled={!!editingCabinet}
-              min={1}
+            <Input
+              placeholder="扫码或输入shortID（例如：E-00001 或 12345）"
             />
           </Form.Item>
           <Form.Item

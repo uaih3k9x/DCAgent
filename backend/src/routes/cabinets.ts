@@ -16,6 +16,7 @@ const createCabinetSchema = z.object({
 const updateCabinetSchema = z.object({
   id: z.string().uuid('Invalid ID'),
   name: z.string().min(1).optional(),
+  shortId: z.number().int().positive('ShortID must be a positive integer').optional(),
   position: z.string().optional(),
   height: z.number().int().positive().optional(),
 });
