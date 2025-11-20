@@ -19,6 +19,14 @@ const updateCabinetSchema = z.object({
   shortId: z.number().int().positive('ShortID must be a positive integer').optional(),
   position: z.string().optional(),
   height: z.number().int().positive().optional(),
+  floorPlanPosition: z.object({
+    x: z.number(),
+    y: z.number(),
+  }).optional(),
+  floorPlanSize: z.object({
+    width: z.number(),
+    depth: z.number(),
+  }).optional(),
 });
 
 const idSchema = z.object({

@@ -20,13 +20,17 @@ import {
   DeleteOutlined,
   HomeOutlined,
   ScanOutlined,
+  LayoutOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { Room, DataCenter } from '@/types';
+import { Room, DataCenter, FloorPlanData } from '@/types';
 import { roomService } from '@/services/roomService';
 import { dataCenterService } from '@/services/dataCenterService';
 import { shortIdPoolService } from '@/services/shortIdPoolService';
+import { cabinetService } from '@/services/cabinetService';
+import { workstationService } from '@/services/workstationService';
 import { ShortIdFormatter } from '@/utils/shortIdFormatter';
+import { FloorPlanEditor } from '@/components/FloorPlanEditor';
 
 const { Title } = Typography;
 const { Search } = Input;
@@ -41,6 +45,9 @@ export default function RoomList() {
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
   const [selectedDataCenter, setSelectedDataCenter] = useState<string>();
   const [shortIdChecking, setShortIdChecking] = useState(false);
+  const [floorPlanVisible, setFloorPlanVisible] = useState(false);
+  const [floorPlanData, setFloorPlanData] = useState<FloorPlanData | null>(null);
+  const [floorPlanLoading, setFloorPlanLoading] = useState(false);
   const [form] = Form.useForm();
 
   // 加载数据中心列表
@@ -212,6 +219,67 @@ export default function RoomList() {
     loadRooms(undefined, value);
   };
 
+  // 打开平面图
+  const handleOpenFloorPlan = async (room: Room) => {
+    setFloorPlanLoading(true);
+    try {
+      const data = await roomService.getFloorPlanData(room.id);
+      setFloorPlanData(data);
+      setFloorPlanVisible(true);
+    } catch (error) {
+      message.error(t('room:messages.loadFloorPlanFailed', 'Failed to load floor plan'));
+      console.error(error);
+    } finally {
+      setFloorPlanLoading(false);
+    }
+  };
+
+  // 保存平面图更改
+  const handleSaveFloorPlan = async (updates: {
+    roomSize?: { width: number; height: number };
+    cabinets?: Array<{ id: string; position: { x: number; y: number } }>;
+    workstations?: Array<{ id: string; position: { x: number; y: number } }>;
+  }) => {
+    try {
+      // 更新机房尺寸
+      if (updates.roomSize && floorPlanData) {
+        await roomService.update(floorPlanData.room.id, {
+          floorPlanWidth: updates.roomSize.width,
+          floorPlanHeight: updates.roomSize.height,
+        });
+      }
+
+      // 更新机柜位置
+      if (updates.cabinets) {
+        for (const cabinet of updates.cabinets) {
+          await cabinetService.update(cabinet.id, {
+            floorPlanPosition: cabinet.position,
+          });
+        }
+      }
+
+      // 更新工作站位置
+      if (updates.workstations) {
+        for (const ws of updates.workstations) {
+          await workstationService.update(ws.id, {
+            floorPlanPosition: ws.position,
+          });
+        }
+      }
+
+      message.success(t('common:messages.saveSuccess', 'Save successful'));
+
+      // 重新加载平面图数据
+      if (floorPlanData) {
+        const data = await roomService.getFloorPlanData(floorPlanData.room.id);
+        setFloorPlanData(data);
+      }
+    } catch (error) {
+      message.error(t('common:messages.saveFailed', 'Save failed'));
+      console.error(error);
+    }
+  };
+
   const columns = [
     {
       title: t('room:fields.id'),
@@ -248,9 +316,18 @@ export default function RoomList() {
     {
       title: t('room:fields.actions'),
       key: 'actions',
-      width: 150,
+      width: 200,
       render: (_: any, record: Room) => (
         <Space>
+          <Button
+            type="link"
+            size="small"
+            icon={<LayoutOutlined />}
+            onClick={() => handleOpenFloorPlan(record)}
+            loading={floorPlanLoading}
+          >
+            {t('room:actions.floorPlan', 'Floor Plan')}
+          </Button>
           <Button
             type="link"
             size="small"
@@ -376,6 +453,32 @@ export default function RoomList() {
             </Select>
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* 平面图弹窗 */}
+      <Modal
+        title={null}
+        open={floorPlanVisible}
+        onCancel={() => setFloorPlanVisible(false)}
+        footer={null}
+        width="90%"
+        style={{ top: 20 }}
+        destroyOnClose
+      >
+        {floorPlanData && (
+          <FloorPlanEditor
+            data={floorPlanData}
+            onSave={handleSaveFloorPlan}
+            onCabinetClick={(cabinetId) => {
+              // TODO: 跳转到机柜详情或3D视图
+              message.info(`Cabinet: ${cabinetId}`);
+            }}
+            onWorkstationClick={(workstationId) => {
+              // TODO: 打开工作站详情
+              message.info(`Workstation: ${workstationId}`);
+            }}
+          />
+        )}
       </Modal>
     </div>
   );

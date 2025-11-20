@@ -1,5 +1,5 @@
 import api from './api';
-import { Room } from '@/types';
+import { Room, FloorPlanData } from '@/types';
 
 export const roomService = {
   // 获取所有机房
@@ -16,13 +16,13 @@ export const roomService = {
   },
 
   // 创建机房
-  async create(data: { name: string; floor?: string; dataCenterId: string }): Promise<Room> {
+  async create(data: { name: string; shortId: number; floor?: string; dataCenterId: string }): Promise<Room> {
     const response = await api.post('/rooms/create', data);
     return response.data;
   },
 
   // 更新机房
-  async update(id: string, data: { name?: string; floor?: string }): Promise<Room> {
+  async update(id: string, data: { name?: string; shortId?: number; floor?: string; floorPlanWidth?: number; floorPlanHeight?: number }): Promise<Room> {
     const response = await api.post('/rooms/update', { id, ...data });
     return response.data;
   },
@@ -35,6 +35,12 @@ export const roomService = {
   // 搜索机房
   async search(query: string): Promise<Room[]> {
     const response = await api.get('/rooms', { params: { search: query } });
+    return response.data;
+  },
+
+  // 获取平面图数据
+  async getFloorPlanData(id: string): Promise<FloorPlanData> {
+    const response = await api.post('/rooms/floor-plan', { id });
     return response.data;
   },
 };

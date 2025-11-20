@@ -22,16 +22,20 @@ model DataCenter {
 
 // 机房
 model Room {
-  id           String     @id @default(uuid())
-  shortId      Int?       @unique // 全局唯一短ID（通过 GlobalShortIdAllocation 分配）
+  id           String        @id @default(uuid())
+  shortId      Int?          @unique // 全局唯一短ID（通过 GlobalShortIdAllocation 分配）
   name         String
   floor        String?
   dataCenterId String
-  dataCenter   DataCenter @relation(fields: [dataCenterId], references: [id], onDelete: Cascade)
+  dataCenter   DataCenter    @relation(fields: [dataCenterId], references: [id], onDelete: Cascade)
   cabinets     Cabinet[]
-  ipSubnets    IpSubnet[] // 关联的IP子网
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  workstations Workstation[] // 工作站（电脑桌）
+  ipSubnets    IpSubnet[]    // 关联的IP子网
+  // 平面图尺寸（单位：米）
+  floorPlanWidth  Float?     // 机房宽度
+  floorPlanHeight Float?     // 机房长度
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 }
 
 // 机柜
@@ -39,11 +43,14 @@ model Cabinet {
   id        String   @id @default(uuid())
   shortId   Int?     @unique // 全局唯一短ID（通过 GlobalShortIdAllocation 分配）
   name      String
-  position  String?  // 机房中的位置
+  position  String?  // 机房中的位置（文本标识，如"A-01"）
   height    Int      @default(42) // U数，默认42U
   roomId    String
   room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
   devices   Device[]
+  // 平面图位置信息（单位：米）
+  floorPlanPosition Json? // 位置坐标 {x, y}
+  floorPlanSize     Json? // 尺寸 {width, depth}
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -74,6 +81,51 @@ model Device {
   ipAddresses IpAddress[] // 设备的管理IP地址
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+}
+
+// 工作站状态枚举
+enum WorkstationStatus {
+  ONLINE       // 在线
+  OFFLINE      // 离线
+  IN_USE       // 使用中
+  IDLE         // 空闲
+  MAINTENANCE  // 维护中
+  FAULTY       // 故障
+}
+
+// 工作站（电脑桌）
+model Workstation {
+  id          String            @id @default(uuid())
+  name        String            // 工作站名称，如 "A区-01号机"
+  code        String?           @unique // 编号（可选，用于快速识别）
+  roomId      String
+  room        Room              @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  // 硬件配置
+  cpu         String?           // CPU型号
+  memory      String?           // 内存大小
+  storage     String?           // 存储配置
+  gpu         String?           // 显卡型号
+  os          String?           // 操作系统
+
+  // 状态和分配
+  status      WorkstationStatus @default(OFFLINE)
+  assignedTo  String?           // 分配给的用户/学生
+  ipAddress   String?           // IP地址
+  macAddress  String?           // MAC地址
+
+  // 平面图位置信息（单位：米）
+  floorPlanPosition Json?       // 位置坐标 {x, y}
+  floorPlanSize     Json?       // 尺寸 {width, depth}
+
+  // 备注
+  notes       String?           // 备注信息
+
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([roomId])
+  @@index([status])
 }
 
 // 面板类型枚举
@@ -245,6 +297,7 @@ enum EntityType {
   PORT
   CABLE
   CABLE_ENDPOINT
+  WORKSTATION  // 工作站
 }
 
 // 打印任务表

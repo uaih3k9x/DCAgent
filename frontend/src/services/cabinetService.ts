@@ -22,7 +22,14 @@ export const cabinetService = {
   },
 
   // 更新机柜
-  async update(id: string, data: { name?: string; shortId?: number; position?: string; height?: number }): Promise<Cabinet> {
+  async update(id: string, data: {
+    name?: string;
+    shortId?: number;
+    position?: string;
+    height?: number;
+    floorPlanPosition?: { x: number; y: number };
+    floorPlanSize?: { width: number; depth: number };
+  }): Promise<Cabinet> {
     const response = await api.post('/cabinets/update', { id, ...data });
     return response.data;
   },

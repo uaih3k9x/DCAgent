@@ -12,6 +12,8 @@ export interface Room {
   name: string;
   floor?: string;
   dataCenterId: string;
+  floorPlanWidth?: number;
+  floorPlanHeight?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -23,6 +25,8 @@ export interface Cabinet {
   position?: string;
   height: number;
   roomId: string;
+  floorPlanPosition?: { x: number; y: number };
+  floorPlanSize?: { width: number; depth: number };
   createdAt: string;
   updatedAt: string;
 }
@@ -316,6 +320,77 @@ export interface OpticalModuleStatistics {
   byVendor: Array<{
     vendor: string;
     count: number;
+  }>;
+}
+
+// ============================================
+// 工作站（电脑桌）管理系统类型定义
+// ============================================
+
+export enum WorkstationStatus {
+  ONLINE = 'ONLINE',           // 在线
+  OFFLINE = 'OFFLINE',         // 离线
+  IN_USE = 'IN_USE',           // 使用中
+  IDLE = 'IDLE',               // 空闲
+  MAINTENANCE = 'MAINTENANCE', // 维护中
+  FAULTY = 'FAULTY',           // 故障
+}
+
+export interface Workstation {
+  id: string;
+  name: string;
+  code?: string;
+  roomId: string;
+  room?: Room;
+
+  // 硬件配置
+  cpu?: string;
+  memory?: string;
+  storage?: string;
+  gpu?: string;
+  os?: string;
+
+  // 状态和分配
+  status: WorkstationStatus;
+  assignedTo?: string;
+  ipAddress?: string;
+  macAddress?: string;
+
+  // 平面图位置信息
+  floorPlanPosition?: { x: number; y: number };
+  floorPlanSize?: { width: number; depth: number };
+
+  // 备注
+  notes?: string;
+
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 平面图数据类型
+export interface FloorPlanData {
+  room: {
+    id: string;
+    name: string;
+    floorPlanWidth?: number;
+    floorPlanHeight?: number;
+  };
+  cabinets: Array<{
+    id: string;
+    name: string;
+    shortId?: number;
+    position?: { x: number; y: number };
+    size?: { width: number; depth: number };
+    deviceCount: number;
+  }>;
+  workstations: Array<{
+    id: string;
+    name: string;
+    code?: string;
+    status: WorkstationStatus;
+    assignedTo?: string;
+    position?: { x: number; y: number };
+    size?: { width: number; depth: number };
   }>;
 }
 

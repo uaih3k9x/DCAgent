@@ -14,6 +14,8 @@ export interface UpdateRoomInput {
   name?: string;
   shortId?: number;
   floor?: string;
+  floorPlanWidth?: number;
+  floorPlanHeight?: number;
 }
 
 class RoomService {
@@ -176,6 +178,51 @@ class RoomService {
         cabinets: true,
       },
     });
+  }
+
+  // 获取机房的平面图数据（包含机柜和工作站）
+  async getFloorPlanData(roomId: string) {
+    const room = await prisma.room.findUnique({
+      where: { id: roomId },
+      include: {
+        cabinets: {
+          include: {
+            devices: true,
+          },
+        },
+        workstations: true,
+      },
+    });
+
+    if (!room) {
+      throw new Error('Room not found');
+    }
+
+    return {
+      room: {
+        id: room.id,
+        name: room.name,
+        floorPlanWidth: room.floorPlanWidth,
+        floorPlanHeight: room.floorPlanHeight,
+      },
+      cabinets: room.cabinets.map(cabinet => ({
+        id: cabinet.id,
+        name: cabinet.name,
+        shortId: cabinet.shortId,
+        position: cabinet.floorPlanPosition,
+        size: cabinet.floorPlanSize,
+        deviceCount: cabinet.devices.length,
+      })),
+      workstations: room.workstations.map(workstation => ({
+        id: workstation.id,
+        name: workstation.name,
+        code: workstation.code,
+        status: workstation.status,
+        assignedTo: workstation.assignedTo,
+        position: workstation.floorPlanPosition,
+        size: workstation.floorPlanSize,
+      })),
+    };
   }
 }
 

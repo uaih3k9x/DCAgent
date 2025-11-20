@@ -16,6 +16,8 @@ export interface UpdateCabinetInput {
   shortId?: number;
   position?: string;
   height?: number;
+  floorPlanPosition?: { x: number; y: number };
+  floorPlanSize?: { width: number; depth: number };
 }
 
 class CabinetService {

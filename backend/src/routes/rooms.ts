@@ -17,6 +17,8 @@ const updateRoomSchema = z.object({
   name: z.string().min(1).optional(),
   shortId: z.number().int().positive('ShortID must be a positive integer').optional(),
   floor: z.string().optional(),
+  floorPlanWidth: z.number().positive().optional(),
+  floorPlanHeight: z.number().positive().optional(),
 });
 
 const idSchema = z.object({
@@ -128,6 +130,21 @@ router.post('/delete', async (req: Request, res: Response) => {
     }
     console.error('Error deleting room:', error);
     res.status(500).json({ error: 'Failed to delete room' });
+  }
+});
+
+// POST /api/v1/rooms/floor-plan - 获取平面图数据
+router.post('/floor-plan', async (req: Request, res: Response) => {
+  try {
+    const { id } = idSchema.parse(req.body);
+    const floorPlanData = await roomService.getFloorPlanData(id);
+    res.json(floorPlanData);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: error.errors });
+    }
+    console.error('Error fetching floor plan data:', error);
+    res.status(500).json({ error: 'Failed to fetch floor plan data' });
   }
 });
 
